@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: pronote-backend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      # Add the rest via Render Dashboard → Environment tab
+      # SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+      # JWT_SECRET, OPENAI_API_KEY
+      # STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+      # FRONTEND_URL  ← set this to your Netlify URL after deploy

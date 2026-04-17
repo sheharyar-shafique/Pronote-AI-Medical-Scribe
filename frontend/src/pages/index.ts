@@ -1,0 +1,13 @@
+export { default as LandingPage } from './LandingPage';
+export { default as LoginPage } from './LoginPage';
+export { default as SignupPage } from './SignupPage';
+export { default as DashboardPage } from './DashboardPage';
+export { default as CapturePage } from './CapturePage';
+export { default as DictationPage } from './DictationPage';
+export { default as UploadPage } from './UploadPage';
+export { default as NotesPage } from './NotesPage';
+export { default as NoteEditorPage } from './NoteEditorPage';
+export { default as TemplatesPage } from './TemplatesPage';
+export { default as SettingsPage } from './SettingsPage';
+export { default as AdminPage } from './AdminPage';
+export { default as SubscriptionLockedPage } from './SubscriptionLockedPage';
