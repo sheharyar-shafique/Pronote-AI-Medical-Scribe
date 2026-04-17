@@ -146,7 +146,7 @@ export default function DashboardPage() {
                 <div className={`absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br ${stat.gradient} opacity-5`} />
               </div>
             </motion.div>
-          ))}}
+          ))}
         </motion.div>
 
         <div className="grid lg:grid-cols-3 gap-8">
@@ -171,7 +171,7 @@ export default function DashboardPage() {
                     </div>
                   </Link>
                 </motion.div>
-              ))}}
+              ))}
             </div>
           </motion.div>
 
