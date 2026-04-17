@@ -61,7 +61,7 @@ export default function LandingPage() {
               <Link to="/login" onClick={() => setMobileMenu(false)} className="text-center py-2.5 text-slate-700 font-medium rounded-xl border border-slate-200">Sign In</Link>
               <Link to="/signup" onClick={() => setMobileMenu(false)} className="text-center py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-xl">Start Free Trial</Link>
             </div>
-          </div>
+          </motion.div>
         )}
       </header>
 
