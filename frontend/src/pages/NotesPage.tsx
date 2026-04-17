@@ -381,7 +381,7 @@ ${note.transcription || 'No transcription available'}
                       </Button>
                     </div>
                   )}
-                </Card>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
