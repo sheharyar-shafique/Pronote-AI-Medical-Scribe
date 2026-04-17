@@ -1,4 +1,4 @@
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
   Play, Star, Clock, Shield, Zap, ChevronDown, Check, Mic, FileText,
@@ -10,9 +10,6 @@ import { faqs, pricingPlans } from '../data';
 export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const { scrollY } = useScroll();
-  const navBg = useTransform(scrollY, [0, 80], ['rgba(255,255,255,0)', 'rgba(255,255,255,0.97)']);
-  const navShadow = useTransform(scrollY, [0, 80], ['0 0 0 0 rgba(0,0,0,0)', '0 1px 24px rgba(0,0,0,0.08)']);
 
   const navLinks = ['Features', 'Pricing', 'About'];
 
@@ -20,10 +17,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-white overflow-x-hidden">
 
       {/* ── Navbar ─────────────────────────────── */}
-      <motion.header
-        style={{ backgroundColor: navBg, boxShadow: navShadow }}
-        className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md"
-      >
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-slate-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5 group">
             <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200 group-hover:scale-105 transition-transform">
@@ -67,9 +61,9 @@ export default function LandingPage() {
               <Link to="/login" onClick={() => setMobileMenu(false)} className="text-center py-2.5 text-slate-700 font-medium rounded-xl border border-slate-200">Sign In</Link>
               <Link to="/signup" onClick={() => setMobileMenu(false)} className="text-center py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-xl">Start Free Trial</Link>
             </div>
-          </motion.div>
+          </div>
         )}
-      </motion.header>
+      </header>
 
       {/* ── Hero ───────────────────────────────── */}
       <section className="relative min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center pt-16 overflow-hidden">
