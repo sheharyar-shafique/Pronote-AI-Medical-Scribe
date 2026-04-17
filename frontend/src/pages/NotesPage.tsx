@@ -182,10 +182,8 @@ ${note.transcription || 'No transcription available'}
           className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6"
         >
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Clinical Notes</h1>
-            <p className="text-gray-600">
-              Manage and review all your clinical documentation.
-            </p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1">Clinical Notes</h1>
+            <p className="text-slate-500">Manage and review all your clinical documentation.</p>
           </div>
           <div className="flex gap-3">
             <Button
@@ -213,42 +211,54 @@ ${note.transcription || 'No transcription available'}
           transition={{ delay: 0.05 }}
           className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6"
         >
-          <Card className="p-4 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilterStatus('all')}>
+          <div onClick={() => setFilterStatus('all')} className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 p-4 shadow-sm cursor-pointer hover:shadow-md transition-all">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Total Notes</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                <p className="text-sm text-slate-500">Total Notes</p>
+                <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
               </div>
-              <FileText size={24} className="text-gray-400" />
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-slate-500 to-slate-700 flex items-center justify-center text-white shadow">
+                <FileText size={20} />
+              </div>
             </div>
-          </Card>
-          <Card className="p-4 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilterStatus('draft')}>
+            <div className="absolute -right-3 -bottom-3 w-16 h-16 rounded-full bg-slate-500/5" />
+          </div>
+          <div onClick={() => setFilterStatus('draft')} className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 p-4 shadow-sm cursor-pointer hover:shadow-md transition-all">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Drafts</p>
+                <p className="text-sm text-slate-500">Drafts</p>
                 <p className="text-2xl font-bold text-amber-600">{stats.draft}</p>
               </div>
-              <Clock size={24} className="text-amber-400" />
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shadow">
+                <Clock size={20} />
+              </div>
             </div>
-          </Card>
-          <Card className="p-4 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilterStatus('completed')}>
+            <div className="absolute -right-3 -bottom-3 w-16 h-16 rounded-full bg-amber-500/5" />
+          </div>
+          <div onClick={() => setFilterStatus('completed')} className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 p-4 shadow-sm cursor-pointer hover:shadow-md transition-all">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Completed</p>
+                <p className="text-sm text-slate-500">Completed</p>
                 <p className="text-2xl font-bold text-blue-600">{stats.completed}</p>
               </div>
-              <CheckCircle size={24} className="text-blue-400" />
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white shadow">
+                <CheckCircle size={20} />
+              </div>
             </div>
-          </Card>
-          <Card className="p-4 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilterStatus('signed')}>
+            <div className="absolute -right-3 -bottom-3 w-16 h-16 rounded-full bg-blue-500/5" />
+          </div>
+          <div onClick={() => setFilterStatus('signed')} className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 p-4 shadow-sm cursor-pointer hover:shadow-md transition-all">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Signed</p>
+                <p className="text-sm text-slate-500">Signed</p>
                 <p className="text-2xl font-bold text-emerald-600">{stats.signed}</p>
               </div>
-              <CheckCircle size={24} className="text-emerald-400" />
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white shadow">
+                <CheckCircle size={20} />
+              </div>
             </div>
-          </Card>
+            <div className="absolute -right-3 -bottom-3 w-16 h-16 rounded-full bg-emerald-500/5" />
+          </div>
         </motion.div>
 
         {/* Search and Filters */}
@@ -259,15 +269,11 @@ ${note.transcription || 'No transcription available'}
           className="space-y-4 mb-6"
         >
           <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by patient name, template, status..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              />
+              <div className="flex-1 relative">
+              <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input type="text" placeholder="Search by patient name, template, status..."
+                value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-slate-900 placeholder-slate-400 transition-all" />
             </div>
             <Button
               variant="outline"
@@ -289,7 +295,7 @@ ${note.transcription || 'No transcription available'}
                 exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden"
               >
-                <Card className="p-4">
+            <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
@@ -450,7 +456,7 @@ ${note.transcription || 'No transcription available'}
                 transition={{ delay: Math.min(0.05 * index, 0.5) }}
                 layout
               >
-                <Card className="p-5 hover:shadow-md transition-all hover:border-emerald-200">
+                <div className="bg-white rounded-2xl border border-slate-100 p-5 hover:shadow-md transition-all hover:border-emerald-200">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
@@ -554,7 +560,7 @@ ${note.transcription || 'No transcription available'}
                       </div>
                     </div>
                   </div>
-                </Card>
+                </div>
               </motion.div>
             ))}
           </motion.div>
