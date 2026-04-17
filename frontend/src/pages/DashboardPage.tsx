@@ -113,10 +113,12 @@ export default function DashboardPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-            Welcome back, {user?.name?.split(' ')[0] || 'Doctor'}!
-          </h1>
-          <p className="text-gray-600">
+          <div className="flex items-center gap-3 mb-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
+              Welcome back, {user?.name?.split(' ')[0] || 'Doctor'}! 👋
+            </h1>
+          </div>
+          <p className="text-slate-500">
             Here's what's happening with your clinical documentation today.
           </p>
         </motion.div>
@@ -129,21 +131,22 @@ export default function DashboardPage() {
           className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
         >
           {[
-            { label: 'Total Notes', value: statsLoading ? '...' : (stats?.totalNotes?.toString() || '0'), icon: <FileText size={20} />, color: 'text-emerald-600' },
-            { label: 'This Week', value: statsLoading ? '...' : (stats?.notesThisWeek?.toString() || '0'), icon: <Calendar size={20} />, color: 'text-blue-600' },
-            { label: 'Avg. Time', value: statsLoading ? '...' : (stats?.averageTime || 'N/A'), icon: <Clock size={20} />, color: 'text-purple-600' },
-            { label: 'Accuracy', value: statsLoading ? '...' : (stats?.accuracy || 'N/A'), icon: <TrendingUp size={20} />, color: 'text-amber-600' },
+            { label: 'Total Notes', value: statsLoading ? '...' : (stats?.totalNotes?.toString() || '0'), icon: <FileText size={22} />, gradient: 'from-emerald-500 to-teal-600', bg: 'bg-emerald-50', shadow: 'shadow-emerald-100' },
+            { label: 'This Week', value: statsLoading ? '...' : (stats?.notesThisWeek?.toString() || '0'), icon: <Calendar size={22} />, gradient: 'from-blue-500 to-indigo-600', bg: 'bg-blue-50', shadow: 'shadow-blue-100' },
+            { label: 'Avg. Time', value: statsLoading ? '...' : (stats?.averageTime || 'N/A'), icon: <Clock size={22} />, gradient: 'from-violet-500 to-purple-600', bg: 'bg-violet-50', shadow: 'shadow-violet-100' },
+            { label: 'Accuracy', value: statsLoading ? '...' : (stats?.accuracy || 'N/A'), icon: <TrendingUp size={22} />, gradient: 'from-amber-500 to-orange-600', bg: 'bg-amber-50', shadow: 'shadow-amber-100' },
           ].map((stat, index) => (
             <motion.div key={index} variants={itemVariants}>
-              <Card className="p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <span className={`${stat.color}`}>{stat.icon}</span>
+              <div className={`relative overflow-hidden rounded-2xl bg-white border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-300`}>
+                <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center text-white mb-4 shadow-lg`}>
+                  {stat.icon}
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                <p className="text-sm text-gray-500">{stat.label}</p>
-              </Card>
+                <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
+                <p className="text-sm text-slate-500 mt-0.5">{stat.label}</p>
+                <div className={`absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br ${stat.gradient} opacity-5`} />
+              </div>
             </motion.div>
-          ))}
+          ))}}
         </motion.div>
 
         <div className="grid lg:grid-cols-3 gap-8">
@@ -154,21 +157,21 @@ export default function DashboardPage() {
             animate="visible"
             className="lg:col-span-3 mb-4"
           >
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Quick Actions</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               {quickActions.map((action, index) => (
                 <motion.div key={index} variants={itemVariants}>
                   <Link to={action.href}>
-                    <Card className="p-5 h-full" hover>
-                      <div className={`w-12 h-12 ${action.color} rounded-xl flex items-center justify-center text-white mb-4`}>
+                    <div className="group bg-white rounded-2xl border border-slate-100 p-4 h-full hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+                      <div className={`w-12 h-12 ${action.color} rounded-xl flex items-center justify-center text-white mb-3 shadow-md group-hover:scale-110 transition-transform duration-200`}>
                         {action.icon}
                       </div>
-                      <h3 className="font-semibold text-gray-900 mb-1">{action.title}</h3>
-                      <p className="text-sm text-gray-500">{action.description}</p>
-                    </Card>
+                      <h3 className="font-semibold text-slate-800 text-sm mb-0.5">{action.title}</h3>
+                      <p className="text-xs text-slate-500">{action.description}</p>
+                    </div>
                   </Link>
                 </motion.div>
-              ))}
+              ))}}
             </div>
           </motion.div>
 
@@ -215,7 +218,7 @@ export default function DashboardPage() {
           className="mt-8"
         >
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Recent Clinical Notes</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Recent Clinical Notes</h2>
             <Link to="/notes" className="text-emerald-600 hover:text-emerald-700 text-sm font-medium flex items-center gap-1">
               View All <ChevronRight size={16} />
             </Link>
