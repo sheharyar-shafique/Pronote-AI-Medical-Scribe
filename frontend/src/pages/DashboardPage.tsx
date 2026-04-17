@@ -106,14 +106,14 @@ export default function DashboardPage() {
 
   return (
     <Sidebar>
-      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
         {/* Welcome Section */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
             Welcome back, {user?.name?.split(' ')[0] || 'Doctor'}!
           </h1>
           <p className="text-gray-600">

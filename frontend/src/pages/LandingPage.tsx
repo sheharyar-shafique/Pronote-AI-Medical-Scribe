@@ -45,7 +45,7 @@ export default function LandingPage() {
                 Trusted by 50,000+ clinicians
               </motion.div>
               
-              <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight mb-6">
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight mb-6">
                 Your clinical notes.{' '}
                 <span className="relative">
                   <span className="text-emerald-500">Auto</span>
@@ -174,7 +174,7 @@ export default function LandingPage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-2xl sm:text-4xl font-bold text-gray-900 mb-4">
               Built for clinicians, by clinicians.
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
@@ -232,7 +232,7 @@ export default function LandingPage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-2xl sm:text-4xl font-bold text-gray-900 mb-4">
               Built for clinicians, by clinicians.
             </h2>
           </motion.div>
@@ -307,7 +307,7 @@ export default function LandingPage() {
               <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium mb-4">
                 Simple & Powerful
               </span>
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              <h2 className="text-2xl sm:text-4xl font-bold text-gray-900 mb-4">
                 Super simple,<br />super powerful.
               </h2>
               <p className="text-lg text-gray-600 mb-6">
@@ -370,7 +370,7 @@ export default function LandingPage() {
               viewport={{ once: true }}
               className="order-1 lg:order-2"
             >
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              <h2 className="text-2xl sm:text-4xl font-bold text-gray-900 mb-4">
                 Prefer not to capture the conversation?<br />
                 <span className="text-emerald-500">No problem.</span>
               </h2>
@@ -546,7 +546,7 @@ export default function LandingPage() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
             {[
               { title: 'HIPAA Compliant', desc: 'Full compliance with healthcare regulations' },
               { title: 'Secure Infrastructure', desc: 'End-to-end encryption for all data' },
@@ -588,7 +588,7 @@ export default function LandingPage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-4xl font-bold text-white mb-4">
+            <h2 className="text-2xl sm:text-4xl font-bold text-white mb-4">
               Reclaim your time.<br />Improve patient care.
             </h2>
             <p className="text-xl text-emerald-100 mb-8">

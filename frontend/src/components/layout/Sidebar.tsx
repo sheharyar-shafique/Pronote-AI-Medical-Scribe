@@ -14,7 +14,7 @@ import {
   ChevronLeft,
   Users
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store';
 
 const menuItems = [
@@ -38,12 +38,26 @@ interface SidebarProps {
 export default function Sidebar({ children }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : false
+  );
   const location = useLocation();
   const { user, logout } = useAuthStore();
 
+  // Track desktop breakpoint
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Auto-close mobile menu on navigation
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [location.pathname]);
+
   const handleLogout = () => {
     logout();
-    // Navigate to landing page after logout
     window.location.href = '/';
   };
 
@@ -52,7 +66,7 @@ export default function Sidebar({ children }: SidebarProps) {
     : menuItems;
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 overflow-x-hidden">
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between">
@@ -65,6 +79,7 @@ export default function Sidebar({ children }: SidebarProps) {
           <button
             onClick={() => setIsMobileOpen(!isMobileOpen)}
             className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            aria-label="Toggle menu"
           >
             {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -98,7 +113,7 @@ export default function Sidebar({ children }: SidebarProps) {
                     <span className="text-xl font-semibold text-gray-900">Pronote</span>
                   </Link>
                 </div>
-                <nav className="flex-1 p-4 space-y-1">
+                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
                   {allMenuItems.map((item) => {
                     const isActive = location.pathname === item.href;
                     return (
@@ -150,7 +165,7 @@ export default function Sidebar({ children }: SidebarProps) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="text-xl font-semibold text-gray-900"
+                className="text-xl font-semibold text-gray-900 whitespace-nowrap"
               >
                 Pronote
               </motion.span>
@@ -158,7 +173,7 @@ export default function Sidebar({ children }: SidebarProps) {
           </Link>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {allMenuItems.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -177,7 +192,7 @@ export default function Sidebar({ children }: SidebarProps) {
                   <motion.span
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="font-medium"
+                    className="font-medium whitespace-nowrap"
                   >
                     {item.name}
                   </motion.span>
@@ -206,12 +221,12 @@ export default function Sidebar({ children }: SidebarProps) {
         </div>
       </motion.aside>
 
-      {/* Main Content */}
+      {/* Main Content — animated margin ONLY on desktop */}
       <motion.main
         initial={false}
-        animate={{ marginLeft: isCollapsed ? 80 : 280 }}
+        animate={{ marginLeft: isDesktop ? (isCollapsed ? 80 : 280) : 0 }}
         transition={{ duration: 0.3 }}
-        className="flex-1 lg:ml-[280px] mt-16 lg:mt-0 min-h-screen"
+        className="flex-1 mt-16 lg:mt-0 min-h-screen w-full max-w-full overflow-x-hidden"
       >
         {children}
       </motion.main>
