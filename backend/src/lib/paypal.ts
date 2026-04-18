@@ -14,11 +14,10 @@ if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
 
 export const paypalEnabled = !!(PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECRET);
 
-// PayPal Plan IDs (create these in PayPal Dashboard)
-export const PAYPAL_PLANS = {
-  individual_annual: process.env.PAYPAL_INDIVIDUAL_ANNUAL_PLAN_ID || 'P-individual-annual-plan-id',
-  group_monthly: process.env.PAYPAL_GROUP_MONTHLY_PLAN_ID || 'P-group-monthly-plan-id',
-  group_annual: process.env.PAYPAL_GROUP_ANNUAL_PLAN_ID || 'P-group-annual-plan-id',
+export const PAYPAL_PLANS: Record<string, string> = {
+  individual_annual: process.env.PAYPAL_INDIVIDUAL_ANNUAL_PLAN_ID || '',
+  group_monthly: process.env.PAYPAL_GROUP_MONTHLY_PLAN_ID || '',
+  group_annual: process.env.PAYPAL_GROUP_ANNUAL_PLAN_ID || '',
 };
 
 // Get PayPal access token
@@ -204,6 +203,68 @@ export async function verifyWebhookSignature(
 
   const data = await response.json() as { verification_status: string };
   return data.verification_status === 'SUCCESS';
+}
+
+// Create a PayPal product (catalog item)
+export async function createProduct(name: string, description: string): Promise<string> {
+  const accessToken = await getAccessToken();
+  const response = await fetch(`${PAYPAL_BASE_URL}/v1/catalogs/products`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'PayPal-Request-Id': `pronote-product-${Date.now()}`,
+    },
+    body: JSON.stringify({ name, description, type: 'SERVICE', category: 'SOFTWARE' }),
+  });
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to create PayPal product: ${error}`);
+  }
+  const data = await response.json() as { id: string };
+  return data.id;
+}
+
+// Create a PayPal billing plan
+export async function createBillingPlan(
+  productId: string,
+  name: string,
+  price: string,
+  intervalUnit: 'MONTH' | 'YEAR'
+): Promise<string> {
+  const accessToken = await getAccessToken();
+  const response = await fetch(`${PAYPAL_BASE_URL}/v1/billing/plans`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'PayPal-Request-Id': `pronote-plan-${name.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}`,
+      'Prefer': 'return=representation',
+    },
+    body: JSON.stringify({
+      product_id: productId,
+      name,
+      status: 'ACTIVE',
+      billing_cycles: [{
+        frequency: { interval_unit: intervalUnit, interval_count: 1 },
+        tenure_type: 'REGULAR',
+        sequence: 1,
+        total_cycles: 0,
+        pricing_scheme: { fixed_price: { value: price, currency_code: 'USD' } },
+      }],
+      payment_preferences: {
+        auto_bill_outstanding: true,
+        setup_fee_failure_action: 'CONTINUE',
+        payment_failure_threshold: 3,
+      },
+    }),
+  });
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to create PayPal billing plan: ${error}`);
+  }
+  const data = await response.json() as { id: string };
+  return data.id;
 }
 
 // Types

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   User, 
@@ -46,6 +46,8 @@ export default function SettingsPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [isVerifyingPayPal, setIsVerifyingPayPal] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal'>('paypal');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -137,6 +139,30 @@ export default function SettingsPage() {
     }
   };
 
+  // Verify PayPal subscription on return from PayPal
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paypalSubId = params.get('subscription_id');
+    if (paypalSubId) {
+      setIsVerifyingPayPal(true);
+      subscriptionsApi.verifyPayPalSubscription(paypalSubId)
+        .then(() => {
+          toast.success('PayPal subscription activated! Welcome aboard.');
+          window.history.replaceState({}, '', '/settings');
+        })
+        .catch(() => toast.error('Could not verify PayPal subscription.'))
+        .finally(() => setIsVerifyingPayPal(false));
+    }
+    if (params.get('success') === 'true') {
+      toast.success('Subscription activated successfully!');
+      window.history.replaceState({}, '', '/settings');
+    }
+    if (params.get('canceled') === 'true') {
+      toast('Checkout cancelled.');
+      window.history.replaceState({}, '', '/settings');
+    }
+  }, []);
+
   const handleUpgrade = async (planId: string) => {
     setIsUpgrading(true);
     try {
@@ -145,7 +171,6 @@ export default function SettingsPage() {
         `${window.location.origin}/settings?success=true`,
         `${window.location.origin}/settings?canceled=true`
       );
-      
       if (response.url) {
         window.location.href = response.url;
       } else {
@@ -153,11 +178,25 @@ export default function SettingsPage() {
       }
     } catch (error) {
       const err = error as { message?: string; status?: number };
-      if (err.status === 503) {
-        toast.error('Payment processing is not configured. Please contact support.');
-      } else {
-        toast.error(err.message || 'Failed to start checkout');
-      }
+      toast.error(err.status === 503 ? 'Stripe not configured. Use PayPal instead.' : (err.message || 'Failed to start checkout'));
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
+
+  const handlePayPalUpgrade = async (planId: string) => {
+    setIsUpgrading(true);
+    try {
+      const response = await subscriptionsApi.createPayPalCheckout(
+        planId,
+        `${window.location.origin}/settings?subscription_id={subscription_id}`,
+        `${window.location.origin}/settings?canceled=true`
+      );
+      if (response.url) window.location.href = response.url;
+      else toast.error('Could not create PayPal checkout');
+    } catch (error) {
+      const err = error as { message?: string };
+      toast.error(err.message || 'Failed to start PayPal checkout');
     } finally {
       setIsUpgrading(false);
     }
@@ -444,29 +483,69 @@ export default function SettingsPage() {
         </div>
 
         {/* Upgrade Modal */}
-        <Modal
-          isOpen={showUpgradeModal}
-          onClose={() => setShowUpgradeModal(false)}
-          title="Upgrade Your Plan"
-          size="full"
-        >
-          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
-            <AlertCircle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-amber-700">
-              Payment processing requires Stripe configuration. Contact support to enable subscriptions.
-            </p>
+        <Modal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} title="Choose Your Plan" size="full">
+
+          {/* Verifying PayPal banner */}
+          {isVerifyingPayPal && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-3">
+              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+              <p className="text-sm text-blue-700 font-medium">Verifying your PayPal subscription…</p>
+            </div>
+          )}
+
+          {/* Payment Method Toggle */}
+          <div className="flex gap-2 mb-6 p-1 bg-slate-100 rounded-xl">
+            <button
+              onClick={() => setPaymentMethod('paypal')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                paymentMethod === 'paypal'
+                  ? 'bg-[#003087] text-white shadow-md'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <span className="text-base">🅿️</span> PayPal
+            </button>
+            <button
+              onClick={() => setPaymentMethod('stripe')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                paymentMethod === 'stripe'
+                  ? 'bg-white text-slate-900 shadow-md'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <CreditCard size={16} /> Credit / Debit Card
+            </button>
           </div>
+
+          {/* Info banners */}
+          {paymentMethod === 'paypal' && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-2 text-sm text-blue-700">
+              🔒 You'll be redirected to PayPal to complete your subscription securely.
+            </div>
+          )}
+          {paymentMethod === 'stripe' && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2 text-sm text-amber-700">
+              <AlertCircle size={15} className="flex-shrink-0" />
+              Card payments require Stripe configuration. <strong className="ml-1">Switch to PayPal for instant checkout.</strong>
+            </div>
+          )}
+
+          {/* Plan cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {pricingPlans.map((plan) => (
-              <div
-                key={plan.id}
+              <div key={plan.id}
                 className={`p-5 border-2 rounded-xl flex flex-col h-full ${
                   plan.highlighted ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white'
                 }`}
               >
+                {plan.highlighted && (
+                  <span className="inline-block text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full mb-2 w-fit">
+                    MOST POPULAR
+                  </span>
+                )}
                 <div>
                   <h4 className="font-semibold text-gray-900 text-lg">{plan.name}</h4>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">
+                  <p className="text-3xl font-bold text-gray-900 mt-1">
                     {plan.price ? `$${plan.price}` : 'Custom'}
                     {plan.price && <span className="text-sm font-normal text-gray-500">/{plan.period}</span>}
                   </p>
@@ -478,19 +557,33 @@ export default function SettingsPage() {
                 <ul className="space-y-2 mt-4 flex-1">
                   {plan.features.map((feature, i) => (
                     <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
-                      <Check size={16} className="text-emerald-500 mt-0.5 flex-shrink-0" />
+                      <Check size={15} className="text-emerald-500 mt-0.5 flex-shrink-0" />
                       <span>{feature}</span>
                     </li>
                   ))}
                 </ul>
-                <Button 
-                  variant={plan.highlighted ? 'primary' : 'outline'}
-                  className="w-full mt-5"
-                  disabled={isUpgrading}
-                  onClick={() => handleUpgrade(plan.id)}
-                >
-                  {isUpgrading ? 'Processing...' : plan.cta}
-                </Button>
+
+                {paymentMethod === 'paypal' ? (
+                  <button
+                    disabled={isUpgrading}
+                    onClick={() => handlePayPalUpgrade(plan.id)}
+                    className="w-full mt-5 py-3 px-4 bg-[#FFC439] hover:bg-[#f0b429] text-[#003087] font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {isUpgrading
+                      ? <div className="w-4 h-4 border-2 border-[#003087]/40 border-t-[#003087] rounded-full animate-spin" />
+                      : <><span>🅿️</span> Pay with PayPal</>
+                    }
+                  </button>
+                ) : (
+                  <Button
+                    variant={plan.highlighted ? 'primary' : 'outline'}
+                    className="w-full mt-5"
+                    disabled={isUpgrading}
+                    onClick={() => handleUpgrade(plan.id)}
+                  >
+                    {isUpgrading ? 'Processing…' : plan.cta}
+                  </Button>
+                )}
               </div>
             ))}
           </div>

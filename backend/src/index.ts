@@ -14,6 +14,7 @@ import adminRoutes from './routes/admin.js';
 import webhookRoutes from './routes/webhooks.js';
 import dashboardRoutes from './routes/dashboard.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { initializePayPalPlans } from './lib/paypalInit.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -68,9 +69,18 @@ app.use((_req, res) => {
 
 // Only listen when not in serverless environment
 if (process.env.VERCEL !== '1') {
-  app.listen(PORT, () => {
-    console.log(`🚀 Pronote API server running on http://localhost:${PORT}`);
-    console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+  // Initialize PayPal plans then start server
+  initializePayPalPlans().then(() => {
+    app.listen(PORT, () => {
+      console.log(`🚀 Pronote API server running on http://localhost:${PORT}`);
+      console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+    });
+  }).catch((err) => {
+    console.error('Startup error:', err);
+    // Start anyway even if PayPal init fails
+    app.listen(PORT, () => {
+      console.log(`🚀 Pronote API server running on http://localhost:${PORT}`);
+    });
   });
 }
 

@@ -1,14 +1,68 @@
 import { Router, Response } from 'express';
 import { supabase } from '../lib/supabase.js';
 import { stripe, STRIPE_PRICES } from '../lib/stripe.js';
-import { paypalEnabled, createSubscription as createPayPalSubscription, cancelSubscription as cancelPayPalSubscription, PAYPAL_PLANS } from '../lib/paypal.js';
+import { paypalEnabled, createSubscription as createPayPalSubscription, cancelSubscription as cancelPayPalSubscription, PAYPAL_PLANS, getSubscription as getPayPalSubscription, verifyWebhookSignature, PayPalWebhookEvent } from '../lib/paypal.js';
 import { createCheckoutSchema } from '../types/schemas.js';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 const router = Router();
 
-// All routes require authentication
+// ── PayPal Webhook (NO auth — called by PayPal servers) ────────────────────
+router.post('/paypal-webhook', async (req, res, next) => {
+  try {
+    const webhookId = process.env.PAYPAL_WEBHOOK_ID || '';
+    const body = JSON.stringify(req.body);
+    const event = req.body as PayPalWebhookEvent;
+
+    // Verify webhook signature if PAYPAL_WEBHOOK_ID is configured
+    if (webhookId) {
+      const isValid = await verifyWebhookSignature(
+        webhookId,
+        req.headers as Record<string, string>,
+        body
+      );
+      if (!isValid) {
+        return res.status(400).json({ error: 'Invalid webhook signature' });
+      }
+    }
+
+    const subscriptionId = event.resource?.id;
+    const userId = event.resource?.custom_id;
+
+    switch (event.event_type) {
+      case 'BILLING.SUBSCRIPTION.ACTIVATED':
+      case 'BILLING.SUBSCRIPTION.UPDATED':
+        if (userId) {
+          await supabase.from('users').update({ subscription_status: 'active' }).eq('id', userId);
+          await supabase.from('subscriptions').update({ status: 'active' }).eq('paypal_subscription_id', subscriptionId);
+        }
+        break;
+      case 'BILLING.SUBSCRIPTION.CANCELLED':
+      case 'BILLING.SUBSCRIPTION.EXPIRED':
+        if (userId) {
+          await supabase.from('users').update({ subscription_status: 'canceled' }).eq('id', userId);
+          await supabase.from('subscriptions').update({ status: 'canceled' }).eq('paypal_subscription_id', subscriptionId);
+        }
+        break;
+      case 'BILLING.SUBSCRIPTION.SUSPENDED':
+        if (userId) {
+          await supabase.from('users').update({ subscription_status: 'paused' }).eq('id', userId);
+          await supabase.from('subscriptions').update({ status: 'suspended' }).eq('paypal_subscription_id', subscriptionId);
+        }
+        break;
+      case 'PAYMENT.SALE.COMPLETED':
+        console.log('✅ PayPal payment completed for subscription:', subscriptionId);
+        break;
+    }
+
+    res.json({ received: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// All routes below require authentication
 router.use(authenticate);
 
 // GET /api/subscriptions - Get current subscription
@@ -142,6 +196,54 @@ router.post('/create-paypal-checkout', async (req: AuthenticatedRequest, res: Re
       .eq('id', req.user!.id);
 
     res.json({ subscriptionId, url: approvalUrl });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/subscriptions/verify-paypal - Verify PayPal subscription after user approval
+router.post('/verify-paypal', async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const { subscriptionId } = req.body;
+    if (!subscriptionId) throw new AppError('Subscription ID is required', 400);
+
+    // Verify status with PayPal API
+    const subscription = await getPayPalSubscription(subscriptionId);
+
+    if (subscription.status !== 'ACTIVE' && subscription.status !== 'APPROVED') {
+      throw new AppError(`PayPal subscription not active. Status: ${subscription.status}`, 400);
+    }
+
+    // Map PayPal plan ID → our plan name
+    const planMapping: Record<string, string> = {};
+    Object.entries(PAYPAL_PLANS).forEach(([name, id]) => { planMapping[id] = name; });
+    const planName = planMapping[subscription.plan_id] || 'group_monthly';
+
+    const now = new Date().toISOString();
+    const periodEnd = subscription.billing_info?.next_billing_time || now;
+
+    // Upsert subscription record
+    await supabase.from('subscriptions').upsert({
+      user_id: req.user!.id,
+      paypal_subscription_id: subscriptionId,
+      payment_provider: 'paypal',
+      status: 'active',
+      plan: planName,
+      current_period_start: now,
+      current_period_end: periodEnd,
+      cancel_at_period_end: false,
+      updated_at: now,
+    }, { onConflict: 'user_id' });
+
+    // Update user record
+    await supabase.from('users').update({
+      subscription_status: 'active',
+      subscription_plan: planName,
+      paypal_subscription_id: subscriptionId,
+      updated_at: now,
+    }).eq('id', req.user!.id);
+
+    res.json({ success: true, message: 'Subscription activated!', plan: planName });
   } catch (error) {
     next(error);
   }

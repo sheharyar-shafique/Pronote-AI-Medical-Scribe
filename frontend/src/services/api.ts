@@ -297,6 +297,20 @@ export const subscriptionsApi = {
       method: 'POST',
     });
   },
+
+  createPayPalCheckout: async (plan: string, successUrl: string, cancelUrl: string) => {
+    return apiFetch<{ subscriptionId: string; url: string }>('/subscriptions/create-paypal-checkout', {
+      method: 'POST',
+      body: JSON.stringify({ plan, successUrl, cancelUrl }),
+    });
+  },
+
+  verifyPayPalSubscription: async (subscriptionId: string) => {
+    return apiFetch<{ success: boolean; message: string; plan: string }>('/subscriptions/verify-paypal', {
+      method: 'POST',
+      body: JSON.stringify({ subscriptionId }),
+    });
+  },
 };
 
 // Dashboard API
