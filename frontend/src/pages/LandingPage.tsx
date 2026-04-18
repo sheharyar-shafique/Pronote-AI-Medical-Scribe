@@ -17,49 +17,73 @@ export default function LandingPage() {
     <div className="min-h-screen bg-white overflow-x-hidden">
 
       {/* ── Navbar ─────────────────────────────── */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-slate-100 shadow-sm">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-xl border-b border-white/[0.07]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+
+          {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200 group-hover:scale-105 transition-transform">
+            <motion.div whileHover={{ scale: 1.08, rotate: 5 }} transition={{ type: 'spring', stiffness: 400 }}
+              className="w-9 h-9 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30">
               <Sparkles size={17} className="text-white" />
-            </div>
-            <span className="text-lg font-bold text-slate-900 tracking-tight">Pronote</span>
+            </motion.div>
+            <span className="text-lg font-bold text-white tracking-tight">Pronote</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8">
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex items-center gap-1">
             {navLinks.map(l => (
               <a key={l} href={`#${l.toLowerCase()}`}
-                className="text-slate-600 hover:text-slate-900 text-sm font-medium transition-colors">
+                className="relative px-4 py-2 text-sm font-medium text-slate-400 hover:text-white transition-colors duration-200 group rounded-lg hover:bg-white/5">
                 {l}
+                <span className="absolute bottom-1 left-4 right-4 h-px bg-gradient-to-r from-emerald-400 to-teal-400 scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left rounded-full" />
               </a>
             ))}
           </nav>
 
-          <div className="hidden md:flex items-center gap-4">
-            <Link to="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
-              Sign In
+          {/* Desktop CTA */}
+          <div className="hidden md:flex items-center gap-3">
+            <Link to="/login">
+              <motion.span whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                className="inline-block text-sm font-medium text-slate-400 hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-white/5">
+                Sign In
+              </motion.span>
             </Link>
-            <Link to="/signup"
-              className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-semibold rounded-xl shadow-md shadow-emerald-200 hover:from-emerald-600 hover:to-teal-700 transition-all">
-              Start Free Trial
+            <Link to="/signup">
+              <motion.span whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                className="relative inline-flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:from-emerald-400 hover:to-teal-400 transition-all duration-200">
+                <span className="absolute inset-0 rounded-xl bg-white/10 opacity-0 hover:opacity-100 transition-opacity" />
+                Start Free Trial
+                <ArrowRight size={14} />
+              </motion.span>
             </Link>
           </div>
 
-          <button onClick={() => setMobileMenu(!mobileMenu)} className="md:hidden p-2 rounded-lg hover:bg-slate-100">
+          {/* Mobile menu button */}
+          <motion.button whileTap={{ scale: 0.92 }} onClick={() => setMobileMenu(!mobileMenu)}
+            className="md:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all">
             {mobileMenu ? <X size={22} /> : <Menu size={22} />}
-          </button>
+          </motion.button>
         </div>
 
+        {/* Mobile Menu */}
         {mobileMenu && (
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-            className="md:hidden bg-white border-t border-slate-100 px-4 py-4 space-y-3">
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="md:hidden bg-slate-900/95 backdrop-blur-xl border-t border-white/[0.07] px-4 py-5 space-y-1">
             {navLinks.map(l => (
               <a key={l} href={`#${l.toLowerCase()}`} onClick={() => setMobileMenu(false)}
-                className="block text-slate-700 font-medium py-2">{l}</a>
+                className="flex items-center gap-2 text-slate-300 hover:text-white font-medium py-3 px-3 rounded-xl hover:bg-white/5 transition-all">
+                {l}
+              </a>
             ))}
-            <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
-              <Link to="/login" onClick={() => setMobileMenu(false)} className="text-center py-2.5 text-slate-700 font-medium rounded-xl border border-slate-200">Sign In</Link>
-              <Link to="/signup" onClick={() => setMobileMenu(false)} className="text-center py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-xl">Start Free Trial</Link>
+            <div className="flex flex-col gap-2 pt-4 border-t border-white/10 mt-2">
+              <Link to="/login" onClick={() => setMobileMenu(false)}
+                className="text-center py-3 text-slate-300 hover:text-white font-medium rounded-xl border border-white/10 hover:bg-white/5 transition-all">
+                Sign In
+              </Link>
+              <Link to="/signup" onClick={() => setMobileMenu(false)}
+                className="text-center py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30">
+                Start Free Trial
+              </Link>
             </div>
           </motion.div>
         )}
