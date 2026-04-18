@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim();
 
 if (!stripeSecretKey) {
   console.warn('⚠️ Stripe secret key not configured. Payment features will be disabled.');
