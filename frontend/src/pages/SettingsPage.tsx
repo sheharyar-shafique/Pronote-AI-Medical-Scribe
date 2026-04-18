@@ -189,7 +189,7 @@ export default function SettingsPage() {
     try {
       const response = await subscriptionsApi.createPayPalCheckout(
         planId,
-        `${window.location.origin}/settings?subscription_id={subscription_id}`,
+        `${window.location.origin}/settings`,
         `${window.location.origin}/settings?canceled=true`
       );
       if (response.url) window.location.href = response.url;
