@@ -158,7 +158,7 @@ export default function CapturePage() {
                   <label className="block text-sm font-medium text-slate-300 mb-2">Patient Name <span className="text-slate-500">(Optional)</span></label>
                   <input type="text" value={patientName} onChange={(e) => setPatientName(e.target.value)}
                     placeholder="Enter patient name"
-                    className="w-full px-4 py-3 rounded-xl border border-white/10 bg-white/8 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 rounded-xl border border-white/20 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                     disabled={session.status !== 'idle'} />
                 </div>
 
