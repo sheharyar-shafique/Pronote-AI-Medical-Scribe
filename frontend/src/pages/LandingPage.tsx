@@ -283,50 +283,48 @@ export default function LandingPage() {
                   </div>
                   <h3 className="text-lg font-bold text-white mb-2">{f.title}</h3>
                   <p className="text-slate-400 text-sm leading-relaxed">{f.desc}</p>
-                  <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${f.color} opacity-0 group-hover:opacity-10 rounded-2xl blur-2xl transition-opacity duration-300`} />
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+                  <div className={`absolute t      {/* ── How it works ───────────────────────── */}
+      <section className="relative py-28 bg-gradient-to-b from-slate-800 to-slate-900 overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.05]"
+          style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)', backgroundSize: '60px 60px' }} />
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* ── How it works ───────────────────────── */}
-      <section className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <motion.div initial={{ opacity: 0, x: -40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-sm font-medium mb-4">
-                Simple & Powerful
+              <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium mb-6">
+                Simple &amp; Powerful
               </span>
-              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
-                Super simple,<br />super powerful.
+              <h2 className="text-4xl sm:text-5xl font-black text-white mb-5">
+                Super simple,<br />
+                <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">super powerful.</span>
               </h2>
-              <p className="text-slate-500 mb-8 leading-relaxed">
+              <p className="text-slate-400 mb-10 leading-relaxed text-lg">
                 Just press record at the start of your visit. Our AI handles the rest—transcribing, organizing and generating clinical notes in seconds.
               </p>
-              <div className="space-y-4 mb-8">
+              <div className="space-y-6 mb-10">
                 {[
-                  { step: '1', title: 'Press record', desc: 'One tap to start capturing your patient visit' },
-                  { step: '2', title: 'AI transcribes', desc: 'Real-time medical speech recognition at 98%+ accuracy' },
-                  { step: '3', title: 'Note generated', desc: 'Structured SOAP note ready in under 60 seconds' },
+                  { step: '1', title: 'Press record', desc: 'One tap to start capturing your patient visit', color: 'from-emerald-400 to-teal-500' },
+                  { step: '2', title: 'AI transcribes', desc: 'Real-time medical speech recognition at 98%+ accuracy', color: 'from-blue-400 to-indigo-500' },
+                  { step: '3', title: 'Note generated', desc: 'Structured SOAP note ready in under 60 seconds', color: 'from-violet-400 to-purple-500' },
                 ].map((s, i) => (
                   <motion.div key={i} initial={{ opacity: 0, x: -16 }} whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-                    className="flex gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-lg shadow-emerald-200">
-                      {s.step}
+                    viewport={{ once: true }} transition={{ delay: i * 0.12 }}
+                    className="flex gap-5 items-start">
+                    <div className={`relative w-12 h-12 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center font-black text-white flex-shrink-0 shadow-lg`}>
+                      <span className="text-base">{s.step}</span>
+                      <div className={`absolute inset-0 rounded-xl bg-gradient-to-br ${s.color} opacity-30 blur-md -z-10`} />
                     </div>
-                    <div>
-                      <h4 className="font-semibold text-slate-900">{s.title}</h4>
-                      <p className="text-slate-500 text-sm">{s.desc}</p>
+                    <div className="pt-1">
+                      <h4 className="font-bold text-white text-base mb-0.5">{s.title}</h4>
+                      <p className="text-slate-400 text-sm">{s.desc}</p>
                     </div>
                   </motion.div>
                 ))}
               </div>
               <Link to="/signup">
                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                  className="flex items-center gap-2 px-6 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-xl shadow-lg shadow-emerald-200 hover:from-emerald-600 hover:to-teal-700 transition-all">
+                  className="flex items-center gap-2 px-7 py-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 hover:from-emerald-600 hover:to-teal-700 transition-all text-base">
                   Get Started Free <ArrowRight size={18} />
                 </motion.button>
               </Link>
@@ -334,27 +332,27 @@ export default function LandingPage() {
 
             <motion.div initial={{ opacity: 0, x: 40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
               <div className="relative">
+                <div className="absolute -inset-4 bg-emerald-500/10 rounded-3xl blur-2xl" />
                 <img src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=700&auto=format&fit=crop"
-                  alt="Doctor with patient" className="rounded-3xl shadow-2xl w-full object-cover" />
-                {/* Overlay card */}
+                  alt="Doctor with patient" className="relative rounded-3xl shadow-2xl w-full object-cover border border-white/10" />
                 <motion.div animate={{ y: [0,-8,0] }} transition={{ repeat: Infinity, duration: 3.5 }}
-                  className="absolute bottom-6 left-6 right-6 bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-4 border border-slate-100">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-lg flex items-center justify-center">
+                  className="absolute bottom-6 left-6 right-6 bg-slate-900/95 backdrop-blur-sm rounded-2xl shadow-xl p-4 border border-white/10">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-9 h-9 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-lg flex items-center justify-center">
                       <Mic size={15} className="text-white" />
                     </div>
                     <div>
-                      <p className="text-slate-900 font-semibold text-sm">AI Note Generated</p>
-                      <p className="text-emerald-600 text-xs">52 seconds</p>
+                      <p className="text-white font-semibold text-sm">AI Note Generated</p>
+                      <p className="text-emerald-400 text-xs">52 seconds</p>
                     </div>
-                    <div className="ml-auto flex items-center gap-1 text-emerald-600 text-xs font-medium bg-emerald-50 px-2 py-1 rounded-lg">
-                      <Check size={12} /> SOAP
+                    <div className="ml-auto flex items-center gap-1 text-emerald-400 text-xs font-bold bg-emerald-400/10 px-2.5 py-1 rounded-lg border border-emerald-400/20">
+                      <Check size={11} /> SOAP
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <div className="h-2 bg-slate-200 rounded-full w-full" />
-                    <div className="h-2 bg-slate-200 rounded-full w-4/5" />
-                    <div className="h-2 bg-slate-200 rounded-full w-3/5" />
+                  <div className="space-y-2">
+                    <div className="h-2 bg-white/10 rounded-full w-full" />
+                    <div className="h-2 bg-white/10 rounded-full w-4/5" />
+                    <div className="h-2 bg-emerald-500/30 rounded-full w-3/5" />
                   </div>
                 </motion.div>
               </div>
@@ -387,7 +385,7 @@ export default function LandingPage() {
             ].map((role, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }} transition={{ delay: i * 0.1 }}>
-                <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 text-center h-full hover:bg-white/8 transition-all hover:-translate-y-1">
+                <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 text-center h-full hover:bg-white/[0.08] transition-all hover:-translate-y-1">
                   <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${role.gradient} flex items-center justify-center mx-auto mb-5 text-white shadow-xl`}>
                     {role.icon}
                   </div>
@@ -404,69 +402,76 @@ export default function LandingPage() {
       </section>
 
       {/* ── Pricing ───────────────────────────── */}
-      <section id="pricing" className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="pricing" className="relative py-28 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.05]"
+          style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)', backgroundSize: '60px 60px' }} />
+        <div className="absolute top-1/2 left-1/3 -translate-y-1/2 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
             className="text-center mb-16">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-sm font-medium mb-4">
+            <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium mb-5">
               Pricing
             </span>
-            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
-              Simple, transparent pricing
+            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
+              Simple,{' '}
+              <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">transparent pricing</span>
             </h2>
-            <p className="text-slate-500 text-lg">
-              Try any plan free for 14 days. No credit card required.
-            </p>
+            <p className="text-slate-400 text-lg">Try any plan free for 14 days. No credit card required.</p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto items-center">
             {pricingPlans.map((plan, index) => (
               <motion.div key={plan.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }} transition={{ delay: index * 0.1 }}>
-                <div className={`relative rounded-2xl p-6 h-full flex flex-col transition-all duration-300 ${
+                <div className={`relative rounded-2xl p-7 h-full flex flex-col transition-all duration-300 ${
                   plan.highlighted
-                    ? 'bg-gradient-to-b from-slate-900 to-slate-800 text-white shadow-2xl scale-105 border-0'
-                    : 'bg-white border border-slate-200 hover:shadow-xl hover:-translate-y-1'
+                    ? 'bg-gradient-to-b from-emerald-500/20 to-teal-500/10 border-2 border-emerald-500/50 shadow-2xl shadow-emerald-500/20 scale-105'
+                    : 'bg-white/[0.04] border border-white/10 hover:border-white/20 hover:bg-white/[0.07] hover:-translate-y-1'
                 }`}>
                   {plan.highlighted && (
-                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-4 py-1 rounded-full text-xs font-bold shadow-lg">
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-5 py-1.5 rounded-full text-xs font-black shadow-lg shadow-emerald-500/40 tracking-wide">
                       MOST POPULAR
                     </div>
                   )}
                   <div className="mb-6">
-                    <h3 className={`text-lg font-bold mb-2 ${plan.highlighted ? 'text-white' : 'text-slate-900'}`}>{plan.name}</h3>
-                    <div className="flex items-baseline gap-1 mb-2">
+                    <h3 className="text-lg font-bold text-white mb-3">{plan.name}</h3>
+                    <div className="flex items-baseline gap-1 mb-1">
                       {plan.price ? (
                         <>
-                          <span className={`text-4xl font-bold ${plan.highlighted ? 'text-white' : 'text-slate-900'}`}>${plan.price}</span>
-                          <span className={plan.highlighted ? 'text-slate-400' : 'text-slate-400'}>/{plan.period}</span>
+                          <span className="text-5xl font-black text-white">${plan.price}</span>
+                          <span className="text-slate-400 text-sm">/{plan.period}</span>
                         </>
                       ) : (
-                        <span className={`text-4xl font-bold ${plan.highlighted ? 'text-white' : 'text-slate-900'}`}>Custom</span>
+                        <span className="text-5xl font-black text-white">Custom</span>
                       )}
                     </div>
-                    {plan.originalPrice && (
-                      <p className={`text-sm line-through ${plan.highlighted ? 'text-slate-500' : 'text-slate-400'}`}>${plan.originalPrice}/month</p>
+                    {plan.pricePerMonth && plan.period === 'year' && (
+                      <p className="text-emerald-400 text-sm font-semibold">${plan.pricePerMonth.toFixed(2)}/mo</p>
                     )}
-                    <p className={`text-sm mt-2 ${plan.highlighted ? 'text-slate-400' : 'text-slate-500'}`}>{plan.description}</p>
+                    {plan.originalPrice && (
+                      <p className="text-slate-500 text-sm line-through">${plan.originalPrice}/month</p>
+                    )}
+                    <p className="text-slate-400 text-sm mt-2">{plan.description}</p>
                   </div>
                   <ul className="space-y-3 mb-8 flex-1">
                     {plan.features.map((feature, i) => (
                       <li key={i} className="flex items-start gap-2.5">
                         <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                          plan.highlighted ? 'bg-emerald-500/20' : 'bg-emerald-100'
+                          plan.highlighted ? 'bg-emerald-500/30' : 'bg-white/10'
                         }`}>
-                          <Check size={11} className={plan.highlighted ? 'text-emerald-400' : 'text-emerald-600'} />
+                          <Check size={11} className="text-emerald-400" />
                         </div>
-                        <span className={`text-sm ${plan.highlighted ? 'text-slate-300' : 'text-slate-600'}`}>{feature}</span>
+                        <span className="text-slate-300 text-sm">{feature}</span>
                       </li>
                     ))}
                   </ul>
                   <Link to="/signup">
-                    <button className={`w-full py-3 px-6 rounded-xl font-semibold text-sm transition-all ${
+                    <button className={`w-full py-3.5 px-6 rounded-xl font-bold text-sm transition-all ${
                       plan.highlighted
                         ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 shadow-lg shadow-emerald-500/30'
-                        : 'border-2 border-slate-200 text-slate-900 hover:border-emerald-500 hover:text-emerald-600'
+                        : 'border border-white/20 text-white hover:bg-white/10 hover:border-white/30'
                     }`}>
                       {plan.cta}
                     </button>
@@ -475,36 +480,49 @@ export default function LandingPage() {
               </motion.div>
             ))}
           </div>
-          <p className="text-center text-slate-400 text-sm mt-8">
-            All plans include a 14-day free trial. Cancel anytime. No hidden fees.
+          <p className="text-center text-slate-500 text-sm mt-10">
+            All plans include a 14-day free trial • Cancel anytime • No hidden fees
           </p>
         </div>
       </section>
 
       {/* ── FAQ ───────────────────────────────── */}
-      <section className="py-24 bg-slate-50">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="relative py-28 bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-            className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
-              Frequently asked questions
+            className="text-center mb-14">
+            <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium mb-5">
+              FAQ
+            </span>
+            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
+              Frequently asked<br />
+              <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">questions</span>
             </h2>
-            <p className="text-slate-500">Everything you need to know about Pronote.</p>
+            <p className="text-slate-400">Everything you need to know about Pronote.</p>
           </motion.div>
 
           <div className="space-y-3">
             {faqs.map((faq, i) => (
               <motion.div key={faq.id} initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }} transition={{ delay: i * 0.04 }}>
+                viewport={{ once: true }} transition={{ delay: i * 0.05 }}>
                 <button onClick={() => setOpenFaq(openFaq === faq.id ? null : faq.id)}
-                  className="w-full flex items-center justify-between p-5 bg-white rounded-2xl border border-slate-200 hover:border-emerald-300 transition-all text-left shadow-sm">
-                  <span className="font-semibold text-slate-900 pr-4">{faq.question}</span>
-                  <ChevronDown size={18} className={`text-slate-400 transition-transform flex-shrink-0 ${openFaq === faq.id ? 'rotate-180' : ''}`} />
+                  className={`w-full flex items-center justify-between p-5 rounded-2xl border transition-all text-left ${
+                    openFaq === faq.id
+                      ? 'bg-emerald-500/10 border-emerald-500/30'
+                      : 'bg-white/[0.04] border-white/10 hover:bg-white/[0.07] hover:border-white/20'
+                  }`}>
+                  <span className={`font-semibold pr-4 ${openFaq === faq.id ? 'text-emerald-400' : 'text-white'}`}>
+                    {faq.question}
+                  </span>
+                  <ChevronDown size={18} className={`transition-transform flex-shrink-0 ${
+                    openFaq === faq.id ? 'rotate-180 text-emerald-400' : 'text-slate-400'
+                  }`} />
                 </button>
                 {openFaq === faq.id && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="px-5 py-4 text-slate-600 bg-white border border-t-0 border-slate-200 rounded-b-2xl -mt-1 text-sm leading-relaxed">
+                    className="px-5 py-4 text-slate-400 bg-emerald-500/5 border border-t-0 border-emerald-500/20 rounded-b-2xl -mt-1 text-sm leading-relaxed">
                     {faq.answer}
                   </motion.div>
                 )}
