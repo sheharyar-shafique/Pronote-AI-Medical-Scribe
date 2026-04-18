@@ -210,19 +210,26 @@ export default function LandingPage() {
       </section>
 
       {/* ── Stats Bar ──────────────────────────── */}
-      <section className="bg-white border-b border-slate-100 py-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+      <section className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 py-14 overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.07]"
+          style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)', backgroundSize: '40px 40px' }} />
+        <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-64 h-64 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-64 h-64 bg-teal-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/10">
             {[
-              { value: '50,000+', label: 'Active clinicians', color: 'text-emerald-600' },
-              { value: '2M+', label: 'Notes generated', color: 'text-blue-600' },
-              { value: '10,000+', label: 'Hours saved daily', color: 'text-violet-600' },
-              { value: '98.5%', label: 'Accuracy rate', color: 'text-amber-600' },
+              { value: '50,000+', label: 'Active clinicians',  gradient: 'from-emerald-400 to-teal-400' },
+              { value: '2M+',     label: 'Notes generated',    gradient: 'from-blue-400 to-indigo-400' },
+              { value: '10,000+', label: 'Hours saved daily',  gradient: 'from-violet-400 to-purple-400' },
+              { value: '98.5%',   label: 'Accuracy rate',      gradient: 'from-amber-400 to-orange-400' },
             ].map((stat, i) => (
-              <motion.div key={i} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }} transition={{ delay: i * 0.08 }} className="text-center">
-                <p className={`text-3xl sm:text-4xl font-bold ${stat.color} mb-1`}>{stat.value}</p>
-                <p className="text-slate-500 text-sm">{stat.label}</p>
+              <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }} transition={{ delay: i * 0.1 }}
+                className="text-center px-6 py-4">
+                <p className={`text-4xl sm:text-5xl font-black bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent mb-2`}>
+                  {stat.value}
+                </p>
+                <p className="text-slate-400 text-sm font-medium tracking-wide uppercase">{stat.label}</p>
               </motion.div>
             ))}
           </div>
@@ -230,44 +237,53 @@ export default function LandingPage() {
       </section>
 
       {/* ── Features ──────────────────────────── */}
-      <section id="features" className="py-24 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section id="features" className="relative py-28 bg-gradient-to-b from-slate-900 to-slate-800 overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.05]"
+          style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)', backgroundSize: '60px 60px' }} />
+        <div className="absolute top-10 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-            className="text-center mb-16">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-sm font-medium mb-4">
+            className="text-center mb-20">
+            <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium mb-5">
               <Sparkles size={13} /> Features
             </span>
-            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
-              Built for clinicians, by clinicians.
+            <h2 className="text-4xl sm:text-5xl font-black text-white mb-5">
+              Built for clinicians,{' '}
+              <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">by clinicians.</span>
             </h2>
-            <p className="text-lg text-slate-500 max-w-2xl mx-auto">
+            <p className="text-lg text-slate-400 max-w-2xl mx-auto">
               Every feature designed to save you time and improve documentation quality.
             </p>
           </motion.div>
 
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { icon: <Clock size={24} />, color: 'from-emerald-400 to-teal-500', glow: 'group-hover:shadow-emerald-100',
+              { icon: <Clock size={22} />, color: 'from-emerald-400 to-teal-500', hoverBorder: 'hover:border-emerald-500/40', hoverBg: 'hover:bg-emerald-500/5', hoverGlow: 'hover:shadow-emerald-500/20',
                 title: 'Save 2+ hours/day', desc: 'Streamline your notes and reclaim time for what truly matters—your patients and your life.' },
-              { icon: <Shield size={24} />, color: 'from-blue-400 to-indigo-500', glow: 'group-hover:shadow-blue-100',
-                title: 'HIPAA compliant & secure', desc: 'Your patients\' data is encrypted and secure with industry-leading security protocols.' },
-              { icon: <Zap size={24} />, color: 'from-violet-400 to-purple-500', glow: 'group-hover:shadow-violet-100',
+              { icon: <Shield size={22} />, color: 'from-blue-400 to-indigo-500', hoverBorder: 'hover:border-blue-500/40', hoverBg: 'hover:bg-blue-500/5', hoverGlow: 'hover:shadow-blue-500/20',
+                title: 'HIPAA compliant & secure', desc: "Your patients' data is encrypted and secure with industry-leading security protocols." },
+              { icon: <Zap size={22} />, color: 'from-violet-400 to-purple-500', hoverBorder: 'hover:border-violet-500/40', hoverBg: 'hover:bg-violet-500/5', hoverGlow: 'hover:shadow-violet-500/20',
                 title: 'Instant accuracy', desc: 'AI-powered medical speech recognition delivers accurate clinical documentation instantly.' },
-              { icon: <Brain size={24} />, color: 'from-rose-400 to-pink-500', glow: 'group-hover:shadow-rose-100',
+              { icon: <Brain size={22} />, color: 'from-rose-400 to-pink-500', hoverBorder: 'hover:border-rose-500/40', hoverBg: 'hover:bg-rose-500/5', hoverGlow: 'hover:shadow-rose-500/20',
                 title: 'AI-powered summaries', desc: 'GPT-4 generates structured SOAP notes, HPI, assessment and plan automatically.' },
-              { icon: <RefreshCw size={24} />, color: 'from-amber-400 to-orange-500', glow: 'group-hover:shadow-amber-100',
+              { icon: <RefreshCw size={22} />, color: 'from-amber-400 to-orange-500', hoverBorder: 'hover:border-amber-500/40', hoverBg: 'hover:bg-amber-500/5', hoverGlow: 'hover:shadow-amber-500/20',
                 title: 'Real-time transcription', desc: 'See your conversation transcribed live as you speak with your patient.' },
-              { icon: <Lock size={24} />, color: 'from-cyan-400 to-sky-500', glow: 'group-hover:shadow-cyan-100',
+              { icon: <Lock size={22} />, color: 'from-cyan-400 to-sky-500', hoverBorder: 'hover:border-cyan-500/40', hoverBg: 'hover:bg-cyan-500/5', hoverGlow: 'hover:shadow-cyan-500/20',
                 title: 'Role-based access', desc: 'Secure multi-user support with admin controls and audit logging built in.' },
             ].map((f, i) => (
-              <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }} transition={{ delay: i * 0.07 }}>
-                <div className={`group bg-white rounded-2xl border border-slate-100 p-6 h-full hover:shadow-xl ${f.glow} transition-all duration-300 hover:-translate-y-1`}>
-                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.color} flex items-center justify-center text-white mb-4 shadow-lg group-hover:scale-110 transition-transform duration-200`}>
+              <motion.div key={i} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }} transition={{ delay: i * 0.08 }}>
+                <div className={`group relative bg-white/[0.04] backdrop-blur-sm border border-white/10 rounded-2xl p-7 h-full
+                  hover:shadow-2xl ${f.hoverGlow} ${f.hoverBorder} ${f.hoverBg}
+                  transition-all duration-300 hover:-translate-y-2 cursor-default`}>
+                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.color} flex items-center justify-center text-white mb-5 shadow-lg group-hover:scale-110 transition-transform duration-200`}>
                     {f.icon}
                   </div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">{f.title}</h3>
-                  <p className="text-slate-500 text-sm leading-relaxed">{f.desc}</p>
+                  <h3 className="text-lg font-bold text-white mb-2">{f.title}</h3>
+                  <p className="text-slate-400 text-sm leading-relaxed">{f.desc}</p>
+                  <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${f.color} opacity-0 group-hover:opacity-10 rounded-2xl blur-2xl transition-opacity duration-300`} />
                 </div>
               </motion.div>
             ))}
