@@ -11,7 +11,7 @@ export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
 
-  const navLinks = ['Features', 'Pricing', 'About'];
+  const navLinks = ['Features', 'How It Works', 'Pricing', 'About'];
 
   return (
     <div className="min-h-screen bg-white overflow-x-hidden">
@@ -316,77 +316,132 @@ export default function LandingPage() {
       </section>
 
       {/* ── How it works ───────────────────────── */}
-      <section className="relative py-28 bg-gradient-to-b from-slate-800 to-slate-900 overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.05]"
-          style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)', backgroundSize: '60px 60px' }} />
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      <section id="how-it-works" className="relative py-28 bg-gradient-to-b from-slate-800 to-slate-900 overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.06]"
+          style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)', backgroundSize: '40px 40px' }} />
+        <div className="absolute top-1/4 left-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/4 right-0 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <motion.div initial={{ opacity: 0, x: -40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-              <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium mb-6">
-                Simple &amp; Powerful
-              </span>
-              <h2 className="text-4xl sm:text-5xl font-black text-white mb-5">
-                Super simple,<br />
-                <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">super powerful.</span>
-              </h2>
-              <p className="text-slate-400 mb-10 leading-relaxed text-lg">
-                Just press record at the start of your visit. Our AI handles the rest—transcribing, organizing and generating clinical notes in seconds.
-              </p>
-              <div className="space-y-6 mb-10">
-                {[
-                  { step: '1', title: 'Press record', desc: 'One tap to start capturing your patient visit', color: 'from-emerald-400 to-teal-500' },
-                  { step: '2', title: 'AI transcribes', desc: 'Real-time medical speech recognition at 98%+ accuracy', color: 'from-blue-400 to-indigo-500' },
-                  { step: '3', title: 'Note generated', desc: 'Structured SOAP note ready in under 60 seconds', color: 'from-violet-400 to-purple-500' },
-                ].map((s, i) => (
-                  <motion.div key={i} initial={{ opacity: 0, x: -16 }} whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }} transition={{ delay: i * 0.12 }}
-                    className="flex gap-5 items-start">
-                    <div className={`relative w-12 h-12 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center font-black text-white flex-shrink-0 shadow-lg`}>
-                      <span className="text-base">{s.step}</span>
-                      <div className={`absolute inset-0 rounded-xl bg-gradient-to-br ${s.color} opacity-30 blur-md -z-10`} />
-                    </div>
-                    <div className="pt-1">
-                      <h4 className="font-bold text-white text-base mb-0.5">{s.title}</h4>
-                      <p className="text-slate-400 text-sm">{s.desc}</p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-              <Link to="/signup">
-                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                  className="flex items-center gap-2 px-7 py-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 hover:from-emerald-600 hover:to-teal-700 transition-all text-base">
-                  Get Started Free <ArrowRight size={18} />
-                </motion.button>
-              </Link>
-            </motion.div>
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            className="text-center mb-20">
+            <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium mb-5">
+              How It Works
+            </span>
+            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
+              Super simple.
+            </h2>
+            <p className="text-slate-400 text-lg max-w-xl mx-auto">
+              From patient visit to finalized note — in under 60 seconds.
+            </p>
+          </motion.div>
 
-            <motion.div initial={{ opacity: 0, x: 40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-              <div className="relative">
-                <div className="absolute -inset-4 bg-emerald-500/10 rounded-3xl blur-2xl" />
-                <img src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=700&auto=format&fit=crop"
-                  alt="Doctor with patient" className="relative rounded-3xl shadow-2xl w-full object-cover border border-white/10" />
-                <motion.div animate={{ y: [0,-8,0] }} transition={{ repeat: Infinity, duration: 3.5 }}
-                  className="absolute bottom-6 left-6 right-6 bg-slate-900/95 backdrop-blur-sm rounded-2xl shadow-xl p-4 border border-white/10">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-9 h-9 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-lg flex items-center justify-center">
-                      <Mic size={15} className="text-white" />
-                    </div>
-                    <div>
-                      <p className="text-white font-semibold text-sm">AI Note Generated</p>
-                      <p className="text-emerald-400 text-xs">52 seconds</p>
-                    </div>
-                    <div className="ml-auto flex items-center gap-1 text-emerald-400 text-xs font-bold bg-emerald-400/10 px-2.5 py-1 rounded-lg border border-emerald-400/20">
-                      <Check size={11} /> SOAP
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-2 bg-white/10 rounded-full w-full" />
-                    <div className="h-2 bg-white/10 rounded-full w-4/5" />
-                    <div className="h-2 bg-emerald-500/30 rounded-full w-3/5" />
+          <div className="grid lg:grid-cols-2 gap-16 items-start">
+
+            {/* ── Left: Visual diagram ── */}
+            <motion.div initial={{ opacity: 0, x: -40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}
+              className="relative">
+              <div className="relative bg-white/[0.03] border border-white/10 rounded-3xl p-8 overflow-hidden"
+                style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.04) 1px,transparent 1px)', backgroundSize: '30px 30px' }}>
+
+                {/* Step 01 — Start visit */}
+                <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }}
+                  className="mb-2">
+                  <p className="text-slate-500 text-xs font-mono mb-2"><span className="text-emerald-400 font-bold">01</span> Start visit</p>
+                  <div className="bg-white/[0.06] border border-white/10 rounded-xl p-4 inline-block">
+                    <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-white text-slate-900 font-bold text-sm rounded-lg shadow-lg">
+                      <Mic size={14} className="text-emerald-600" /> Capture conversation
+                    </motion.button>
                   </div>
                 </motion.div>
+
+                {/* Dotted connector */}
+                <div className="ml-6 my-1 flex flex-col items-start gap-[3px]">
+                  {[...Array(5)].map((_, i) => <div key={i} className="w-px h-2 bg-white/20 rounded" />)}
+                </div>
+
+                {/* Step 02 — Capturing */}
+                <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.25 }}
+                  className="ml-8 mb-2">
+                  <p className="text-slate-500 text-xs font-mono mb-2"><span className="text-blue-400 font-bold">02</span> Capturing</p>
+                  <div className="bg-white/[0.06] border border-white/10 rounded-xl p-4">
+                    <div className="flex items-center gap-[2px]">
+                      {[...Array(28)].map((_, i) => (
+                        <motion.div key={i}
+                          animate={{ height: [6, Math.random() * 24 + 6, 6] }}
+                          transition={{ repeat: Infinity, duration: 0.6 + Math.random() * 0.4, delay: i * 0.05 }}
+                          className="w-[3px] bg-gradient-to-t from-emerald-500 to-teal-400 rounded-full"
+                          style={{ height: 6 }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Dotted connector */}
+                <div className="ml-14 my-1 flex flex-col items-start gap-[3px]">
+                  {[...Array(5)].map((_, i) => <div key={i} className="w-px h-2 bg-white/20 rounded" />)}
+                </div>
+
+                {/* Step 03 — Clinical note */}
+                <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.4 }}
+                  className="ml-16">
+                  <p className="text-slate-500 text-xs font-mono mb-2"><span className="text-violet-400 font-bold">03</span> Clinical note</p>
+                  <div className="bg-white/[0.06] border border-white/10 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-white font-semibold text-sm">Personalized</span>
+                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                        className="px-3 py-1 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold rounded-lg">
+                        Copy
+                      </motion.button>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-2 bg-white/10 rounded-full w-full" />
+                      <div className="h-2 bg-white/10 rounded-full w-4/5" />
+                      <div className="h-2 bg-emerald-500/20 rounded-full w-3/5" />
+                    </div>
+                  </div>
+                </motion.div>
+
+              </div>
+            </motion.div>
+
+            {/* ── Right: Step descriptions ── */}
+            <motion.div initial={{ opacity: 0, x: 40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}
+              className="space-y-0 pt-4">
+              {[
+                {
+                  num: '01', color: 'text-emerald-400', label: 'Capture',
+                  desc: 'Click "Capture conversation" when your visit begins. Pronote listens for up to 1.5 hours, virtual or in-office visits.'
+                },
+                {
+                  num: '02', color: 'text-blue-400', label: 'Review and Edit',
+                  desc: 'Click "End conversation" and view your personalized note in just a few seconds. With every visit, Pronote learns your style.'
+                },
+                {
+                  num: '03', color: 'text-violet-400', label: 'Send',
+                  desc: 'Easily send auto-generated patient instructions, and copy completed notes into any EHR system with one click.'
+                },
+              ].map((s, i) => (
+                <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }} transition={{ delay: i * 0.15 }}
+                  className="group py-8 border-b border-white/[0.08] last:border-0">
+                  <div className="flex items-baseline gap-3 mb-2">
+                    <span className={`font-mono text-sm font-bold ${s.color}`}>{s.num}</span>
+                    <h3 className="text-xl font-bold text-white group-hover:text-emerald-400 transition-colors duration-200">{s.label}</h3>
+                  </div>
+                  <p className="text-slate-400 leading-relaxed pl-9">{s.desc}</p>
+                </motion.div>
+              ))}
+
+              <div className="pt-8">
+                <Link to="/signup">
+                  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                    className="flex items-center gap-2 px-7 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 hover:from-emerald-400 hover:to-teal-400 transition-all text-base">
+                    Get Started Free <ArrowRight size={18} />
+                  </motion.button>
+                </Link>
               </div>
             </motion.div>
           </div>
