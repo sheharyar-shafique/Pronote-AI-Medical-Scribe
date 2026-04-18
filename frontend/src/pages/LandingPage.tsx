@@ -283,7 +283,15 @@ export default function LandingPage() {
                   </div>
                   <h3 className="text-lg font-bold text-white mb-2">{f.title}</h3>
                   <p className="text-slate-400 text-sm leading-relaxed">{f.desc}</p>
-                  <div className={`absolute t      {/* ── How it works ───────────────────────── */}
+                  <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${f.color} opacity-0 group-hover:opacity-10 rounded-2xl blur-2xl transition-opacity duration-300`} />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── How it works ───────────────────────── */}
       <section className="relative py-28 bg-gradient-to-b from-slate-800 to-slate-900 overflow-hidden">
         <div className="absolute inset-0 opacity-[0.05]"
           style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)', backgroundSize: '60px 60px' }} />
