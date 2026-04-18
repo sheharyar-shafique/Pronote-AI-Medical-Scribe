@@ -3,12 +3,16 @@ import { supabase } from '../lib/supabase.js';
 import { createNoteSchema, updateNoteSchema } from '../types/schemas.js';
 import { authenticate, requireActiveSubscription, AuthenticatedRequest } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { auditPHIAccess } from '../middleware/auditLog.js';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
 router.use(requireActiveSubscription);
+
+// HIPAA: Audit all PHI access on clinical notes
+router.use(auditPHIAccess('clinical_note'));
 
 // GET /api/notes - Get all notes for current user
 router.get('/', async (req: AuthenticatedRequest, res: Response, next) => {

@@ -5,6 +5,12 @@ import { supabase } from '../lib/supabase.js';
 import { signupSchema, loginSchema } from '../types/schemas.js';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { writeAuditLog } from '../middleware/auditLog.js';
+
+// Failed login tracking (in-memory, resets on restart)
+const failedLogins = new Map<string, { count: number; lockedUntil: Date | null }>();
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
 const router = Router();
 
@@ -58,11 +64,11 @@ router.post('/signup', async (req, res: Response, next) => {
         notifications_enabled: true,
       });
 
-    // Generate JWT
+    // Generate JWT (24h expiry for HIPAA session management)
     const token = jwt.sign(
       { userId: user.id },
       process.env.JWT_SECRET!,
-      { expiresIn: '7d' }
+      { expiresIn: '24h' }
     );
 
     // Log activity
@@ -97,6 +103,27 @@ router.post('/signup', async (req, res: Response, next) => {
 router.post('/login', async (req, res: Response, next) => {
   try {
     const data = loginSchema.parse(req.body);
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+
+    // Check if account is locked
+    const loginRecord = failedLogins.get(data.email);
+    if (loginRecord?.lockedUntil && loginRecord.lockedUntil > new Date()) {
+      const minutesLeft = Math.ceil((loginRecord.lockedUntil.getTime() - Date.now()) / 60000);
+      
+      await writeAuditLog({
+        user_id: null,
+        action: 'auth_account_locked',
+        resource_type: 'auth',
+        ip_address: clientIp,
+        user_agent: req.headers['user-agent'],
+        metadata: { email: data.email, minutes_remaining: minutesLeft },
+      });
+
+      throw new AppError(
+        `Account temporarily locked due to too many failed attempts. Try again in ${minutesLeft} minute(s).`,
+        423
+      );
+    }
 
     // Find user by email
     const { data: user, error } = await supabase
@@ -106,6 +133,23 @@ router.post('/login', async (req, res: Response, next) => {
       .single();
 
     if (error || !user) {
+      // Track failed attempt
+      const record = failedLogins.get(data.email) || { count: 0, lockedUntil: null };
+      record.count += 1;
+      if (record.count >= MAX_FAILED_ATTEMPTS) {
+        record.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MS);
+      }
+      failedLogins.set(data.email, record);
+
+      await writeAuditLog({
+        user_id: null,
+        action: 'auth_login_failed',
+        resource_type: 'auth',
+        ip_address: clientIp,
+        user_agent: req.headers['user-agent'],
+        metadata: { email: data.email, reason: 'invalid_email', attempt: record.count },
+      });
+
       throw new AppError('Invalid email or password', 401);
     }
 
@@ -113,8 +157,28 @@ router.post('/login', async (req, res: Response, next) => {
     const isValidPassword = await bcrypt.compare(data.password, user.password_hash);
     
     if (!isValidPassword) {
+      // Track failed attempt
+      const record = failedLogins.get(data.email) || { count: 0, lockedUntil: null };
+      record.count += 1;
+      if (record.count >= MAX_FAILED_ATTEMPTS) {
+        record.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MS);
+      }
+      failedLogins.set(data.email, record);
+
+      await writeAuditLog({
+        user_id: user.id,
+        action: 'auth_login_failed',
+        resource_type: 'auth',
+        ip_address: clientIp,
+        user_agent: req.headers['user-agent'],
+        metadata: { email: data.email, reason: 'invalid_password', attempt: record.count },
+      });
+
       throw new AppError('Invalid email or password', 401);
     }
+
+    // Reset failed login counter on success
+    failedLogins.delete(data.email);
 
     // Check if trial has expired
     if (user.subscription_status === 'trial' && user.trial_ends_at) {
@@ -127,20 +191,21 @@ router.post('/login', async (req, res: Response, next) => {
       }
     }
 
-    // Generate JWT
+    // Generate JWT (24h expiry for HIPAA session management)
     const token = jwt.sign(
       { userId: user.id },
       process.env.JWT_SECRET!,
-      { expiresIn: '7d' }
+      { expiresIn: '24h' }
     );
 
-    // Log activity
-    await supabase.from('activity_logs').insert({
+    // Log successful login (HIPAA audit)
+    await writeAuditLog({
       user_id: user.id,
-      action: 'user_login',
-      resource_type: 'user',
-      resource_id: user.id,
-      ip_address: req.ip,
+      action: 'auth_login_success',
+      resource_type: 'auth',
+      ip_address: clientIp,
+      user_agent: req.headers['user-agent'],
+      metadata: { email: data.email },
     });
 
     res.json({
@@ -216,7 +281,7 @@ router.post('/refresh', authenticate, async (req: AuthenticatedRequest, res: Res
     const token = jwt.sign(
       { userId: req.user!.id },
       process.env.JWT_SECRET!,
-      { expiresIn: '7d' }
+      { expiresIn: '24h' }
     );
 
     res.json({ token });
@@ -263,6 +328,16 @@ router.post('/change-password', authenticate, async (req: AuthenticatedRequest, 
       .from('users')
       .update({ password_hash: newPasswordHash })
       .eq('id', req.user!.id);
+
+    // HIPAA audit: log password change
+    await writeAuditLog({
+      user_id: req.user!.id,
+      action: 'auth_password_change',
+      resource_type: 'auth',
+      ip_address: req.ip || req.socket.remoteAddress,
+      user_agent: req.headers['user-agent'],
+      metadata: {},
+    });
 
     res.json({ message: 'Password changed successfully' });
   } catch (error) {

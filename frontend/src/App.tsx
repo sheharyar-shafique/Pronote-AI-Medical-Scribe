@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 import { useAuthStore } from './store';
+import { authApi } from './services/api';
 import {
   LandingPage,
   LoginPage,
@@ -17,6 +18,9 @@ import {
   AdminPage,
   SubscriptionLockedPage,
 } from './pages';
+
+// HIPAA: Session inactivity timeout (30 minutes)
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 
 // Protected Route component with subscription check
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -66,11 +70,55 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
-  const { checkAuth } = useAuthStore();
+  const { checkAuth, logout, isAuthenticated } = useAuthStore();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
+  // HIPAA: Auto-logout on inactivity
+  const resetTimer = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (!isAuthenticated) return;
+
+    timeoutRef.current = setTimeout(() => {
+      logout();
+      toast.error('Session expired due to inactivity. Please log in again.', { duration: 5000 });
+    }, SESSION_TIMEOUT_MS);
+  }, [isAuthenticated, logout]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll', 'mousemove'];
+    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer(); // start the timer
+
+    return () => {
+      events.forEach(e => window.removeEventListener(e, resetTimer));
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [isAuthenticated, resetTimer]);
+
+  // HIPAA: Proactive token refresh (refresh at 23h to avoid expiry mid-session)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const refreshInterval = setInterval(async () => {
+      try {
+        const resp = await authApi.refresh();
+        if (resp?.token) {
+          useAuthStore.setState({ token: resp.token });
+        }
+      } catch {
+        // Token expired or invalid — force logout
+        logout();
+        toast.error('Session expired. Please log in again.', { duration: 5000 });
+      }
+    }, 23 * 60 * 60 * 1000); // 23 hours
+
+    return () => clearInterval(refreshInterval);
+  }, [isAuthenticated, logout]);
 
   return (
     <BrowserRouter>

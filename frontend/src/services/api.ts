@@ -99,6 +99,14 @@ export const authApi = {
       body: JSON.stringify({ currentPassword, newPassword }),
     });
   },
+
+  refresh: async () => {
+    const response = await apiFetch<{ token: string }>('/auth/refresh', {
+      method: 'POST',
+    });
+    setAuthToken(response.token);
+    return response;
+  },
 };
 
 // Users API
