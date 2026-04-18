@@ -4,12 +4,31 @@ import {
   Play, Star, Clock, Shield, Zap, ChevronDown, Check, Mic, FileText,
   Users, ArrowRight, Sparkles, Brain, Lock, RefreshCw, Menu, X
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { faqs, pricingPlans } from '../data';
+import { AnimatePresence } from 'framer-motion';
 
 export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
+  const [demoStep, setDemoStep] = useState(0);
+
+  // Auto-advance demo steps
+  useEffect(() => {
+    if (!showDemo) { setDemoStep(0); return; }
+    if (demoStep >= 4) return;
+    const timings = [2000, 3000, 2500, 0];
+    const t = setTimeout(() => setDemoStep(s => s + 1), timings[demoStep]);
+    return () => clearTimeout(t);
+  }, [showDemo, demoStep]);
+
+  // Lock body scroll when demo is open
+  useEffect(() => {
+    if (showDemo) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = '';
+    return () => { document.body.style.overflow = ''; };
+  }, [showDemo]);
 
   const navLinks = ['Features', 'How It Works', 'Pricing', 'About'];
 
@@ -132,6 +151,7 @@ export default function LandingPage() {
                   </motion.button>
                 </Link>
                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowDemo(true)}
                   className="flex items-center justify-center gap-2 px-6 py-3.5 bg-white/10 border border-white/20 text-white font-semibold rounded-xl hover:bg-white/15 transition-all backdrop-blur-sm w-full sm:w-auto">
                   <Play size={16} className="fill-white" /> Watch Demo
                 </motion.button>
@@ -644,6 +664,7 @@ export default function LandingPage() {
                 </motion.button>
               </Link>
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                onClick={() => setShowDemo(true)}
                 className="flex items-center justify-center gap-2 px-8 py-4 border border-white/20 text-white font-semibold rounded-xl hover:bg-white/10 transition-all w-full sm:w-auto">
                 <Play size={18} className="fill-white" /> Watch Demo
               </motion.button>
@@ -689,6 +710,223 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* ── Demo Modal ─────────────────────────── */}
+      <AnimatePresence>
+        {showDemo && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            onClick={() => setShowDemo(false)}>
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 30 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              className="relative w-full max-w-2xl bg-gradient-to-b from-slate-900 to-slate-800 border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
+
+              {/* Close */}
+              <button onClick={() => setShowDemo(false)}
+                className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-400 hover:text-white transition-all">
+                <X size={16} />
+              </button>
+
+              {/* Header */}
+              <div className="px-8 pt-8 pb-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-lg flex items-center justify-center">
+                    <Sparkles size={14} className="text-white" />
+                  </div>
+                  <span className="text-white font-bold">Pronote Demo</span>
+                </div>
+                <p className="text-slate-400 text-sm">See how a clinical note is generated in under 60 seconds.</p>
+              </div>
+
+              {/* Progress */}
+              <div className="px-8 pb-4">
+                <div className="flex gap-2">
+                  {['Start Visit', 'Recording', 'Processing', 'Note Ready'].map((label, i) => (
+                    <div key={i} className="flex-1">
+                      <div className={`h-1 rounded-full transition-all duration-500 ${
+                        i < demoStep ? 'bg-emerald-400' : i === demoStep ? 'bg-emerald-400/50' : 'bg-white/10'
+                      }`} />
+                      <p className={`text-[10px] mt-1 font-medium ${
+                        i <= demoStep ? 'text-emerald-400' : 'text-slate-500'
+                      }`}>{label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Demo content area */}
+              <div className="px-8 pb-8 min-h-[320px]">
+                <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6 h-full">
+
+                  {/* Step 0: Start Visit */}
+                  {demoStep === 0 && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-emerald-400 text-xs font-bold uppercase tracking-wider">Ready</span>
+                      </div>
+                      <div>
+                        <p className="text-slate-400 text-xs mb-2">Patient Name</p>
+                        <motion.div initial={{ width: 0 }} animate={{ width: '60%' }} transition={{ duration: 1.2, delay: 0.3 }}
+                          className="h-9 bg-white/[0.06] rounded-lg border border-white/10 flex items-center px-3 overflow-hidden">
+                          <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
+                            className="text-white text-sm font-medium">Sarah Johnson</motion.span>
+                        </motion.div>
+                      </div>
+                      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.2 }}>
+                        <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg shadow-lg shadow-emerald-500/30">
+                          <Mic size={14} className="text-white" />
+                          <span className="text-white text-sm font-bold">Start Capture</span>
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  )}
+
+                  {/* Step 1: Recording */}
+                  {demoStep === 1 && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                          <span className="text-red-400 text-xs font-bold uppercase tracking-wider">Recording</span>
+                        </div>
+                        <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                          className="text-slate-500 text-xs font-mono">00:42</motion.span>
+                      </div>
+
+                      {/* Waveform */}
+                      <div className="flex items-center justify-center gap-[2px] py-4">
+                        {[...Array(40)].map((_, i) => (
+                          <motion.div key={i}
+                            animate={{ height: [4, Math.random() * 32 + 4, 4] }}
+                            transition={{ repeat: Infinity, duration: 0.5 + Math.random() * 0.5, delay: i * 0.03 }}
+                            className="w-[3px] bg-gradient-to-t from-emerald-500 to-teal-400 rounded-full"
+                            style={{ height: 4 }} />
+                        ))}
+                      </div>
+
+                      {/* Live transcript */}
+                      <div className="space-y-2">
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Live Transcript</p>
+                        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
+                          className="text-slate-300 text-sm leading-relaxed">
+                          <span className="text-emerald-400 font-semibold">Dr:</span> Good morning Sarah. What brings you in today?
+                        </motion.p>
+                        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.0 }}
+                          className="text-slate-300 text-sm leading-relaxed">
+                          <span className="text-blue-400 font-semibold">Pt:</span> I've been having headaches for about two weeks...
+                        </motion.p>
+                        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.0 }}
+                          className="text-slate-300 text-sm leading-relaxed">
+                          <span className="text-emerald-400 font-semibold">Dr:</span> Can you describe the location and severity?
+                        </motion.p>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Step 2: Processing */}
+                  {demoStep === 2 && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-8 space-y-6">
+                      <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
+                        className="w-16 h-16 rounded-full border-2 border-white/10 border-t-emerald-400" />
+                      <div className="text-center">
+                        <p className="text-white font-bold mb-1">AI Processing</p>
+                        <p className="text-slate-400 text-sm">Analyzing conversation &amp; generating clinical note...</p>
+                      </div>
+                      <div className="w-full max-w-xs">
+                        <motion.div initial={{ width: 0 }} animate={{ width: '100%' }} transition={{ duration: 2.2, ease: 'easeInOut' }}
+                          className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full" />
+                      </div>
+                      <div className="flex gap-6 text-center">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
+                          <p className="text-emerald-400 text-xs font-bold">✓ Transcribed</p>
+                        </motion.div>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }}>
+                          <p className="text-emerald-400 text-xs font-bold">✓ Classified</p>
+                        </motion.div>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.9 }}>
+                          <p className="text-emerald-400 text-xs font-bold">✓ Structured</p>
+                        </motion.div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Step 3: Note Ready */}
+                  {demoStep === 3 && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Check size={14} className="text-emerald-400" />
+                          <span className="text-emerald-400 text-xs font-bold uppercase tracking-wider">Note Ready — 52 seconds</span>
+                        </div>
+                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                          className="px-3 py-1 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold rounded-lg">
+                          Copy
+                        </motion.button>
+                      </div>
+                      <div className="space-y-3">
+                        {[
+                          { label: 'Subjective', content: 'Patient reports persistent bilateral frontal headaches for 2 weeks, rated 6/10, worse in the morning...' },
+                          { label: 'Objective', content: 'BP 128/82, HR 76, Temp 98.6°F. Neurological exam normal. No papilledema...' },
+                          { label: 'Assessment', content: 'Tension-type headache, chronic. Rule out secondary causes given 2-week duration...' },
+                          { label: 'Plan', content: 'Order CBC, CMP, TSH. Trial of ibuprofen 400mg TID with meals. Follow up 2 weeks...' },
+                        ].map((s, i) => (
+                          <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.2 }}>
+                            <p className="text-emerald-400 text-xs font-bold mb-0.5">{s.label}</p>
+                            <p className="text-slate-300 text-sm leading-relaxed">{s.content}</p>
+                          </motion.div>
+                        ))}
+                      </div>
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }} className="pt-4">
+                        <Link to="/signup" onClick={() => setShowDemo(false)}>
+                          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 hover:from-emerald-400 hover:to-teal-400 transition-all">
+                            Try It Free <ArrowRight size={16} />
+                          </motion.button>
+                        </Link>
+                      </motion.div>
+                    </motion.div>
+                  )}
+
+                  {/* Step 4+: Replay */}
+                  {demoStep >= 4 && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-12 space-y-4">
+                      <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center shadow-xl shadow-emerald-500/30">
+                        <Check size={28} className="text-white" />
+                      </div>
+                      <p className="text-white font-bold text-lg">That&apos;s it!</p>
+                      <p className="text-slate-400 text-sm text-center max-w-xs">From conversation to clinical note in under 60 seconds. No typing required.</p>
+                      <div className="flex gap-3 pt-2">
+                        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                          onClick={() => setDemoStep(0)}
+                          className="px-5 py-2.5 border border-white/20 text-white font-semibold rounded-xl hover:bg-white/10 transition-all text-sm">
+                          <RefreshCw size={14} className="inline mr-1.5" />Replay
+                        </motion.button>
+                        <Link to="/signup" onClick={() => setShowDemo(false)}>
+                          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                            className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 text-sm">
+                            Start Free Trial
+                          </motion.button>
+                        </Link>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
