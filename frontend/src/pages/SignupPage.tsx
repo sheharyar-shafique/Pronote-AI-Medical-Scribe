@@ -37,7 +37,7 @@ const strengthColor = ['', 'bg-red-500', 'bg-amber-500', 'bg-blue-500', 'bg-emer
 const strengthLabel = ['', 'Weak', 'Fair', 'Good', 'Strong'];
 
 const benefits = [
-  '14-day free trial — no credit card',
+  '7-day free trial — no credit card',
   'All specialty templates included',
   'HIPAA-compliant & fully encrypted',
   'AI notes in under 60 seconds',
@@ -140,7 +140,7 @@ export default function SignupPage() {
             className="mb-7"
           >
             <h1 className="text-4xl font-black text-white mb-2">Create account</h1>
-            <p className="text-white/40 text-sm">Start your 14-day free trial. No credit card required.</p>
+            <p className="text-white/40 text-sm">Start your 7-day free trial. No credit card required.</p>
           </motion.div>
 
           {/* Form card */}

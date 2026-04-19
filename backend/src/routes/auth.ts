@@ -33,8 +33,8 @@ router.post('/signup', async (req, res: Response, next) => {
     // Hash password
     const passwordHash = await bcrypt.hash(data.password, 12);
 
-    // Create user with 14-day trial
-    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    // Create user with 7-day trial
+    const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const { data: user, error } = await supabase
       .from('users')

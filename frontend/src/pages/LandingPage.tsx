@@ -525,7 +525,7 @@ export default function LandingPage() {
               Simple,{' '}
               <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">transparent pricing</span>
             </h2>
-            <p className="text-slate-400 text-lg">Try any plan free for 14 days. No credit card required.</p>
+            <p className="text-slate-400 text-lg">Try any plan free for 7 days. No credit card required.</p>
           </motion.div>
 
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto items-center">
@@ -588,7 +588,7 @@ export default function LandingPage() {
             ))}
           </div>
           <p className="text-center text-slate-500 text-sm mt-10">
-            All plans include a 14-day free trial • Cancel anytime • No hidden fees
+            All plans include a 7-day free trial • Cancel anytime • No hidden fees
           </p>
         </div>
       </section>
@@ -875,7 +875,7 @@ export default function LandingPage() {
               </motion.button>
             </div>
             <p className="text-slate-500 text-sm mt-6">
-              No credit card required • 14-day free trial • Cancel anytime
+              No credit card required • 7-day free trial • Cancel anytime
             </p>
           </motion.div>
         </div>

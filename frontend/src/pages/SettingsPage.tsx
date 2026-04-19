@@ -250,7 +250,7 @@ export default function SettingsPage() {
               </div>
               <p className="text-sm text-gray-500 mb-3">
                 {user?.subscriptionStatus === 'trial' 
-                  ? 'Your trial ends in 14 days'
+                  ? 'Your trial ends in 7 days'
                   : `${user?.subscriptionPlan} plan`
                 }
               </p>

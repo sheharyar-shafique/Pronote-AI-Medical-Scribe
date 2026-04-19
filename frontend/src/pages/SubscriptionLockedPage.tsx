@@ -38,9 +38,9 @@ export default function SubscriptionLockedPage() {
             >
               <Lock size={40} className="text-white" />
             </motion.div>
-            <h1 className="text-2xl font-bold text-white mb-2">Account Locked</h1>
+            <h1 className="text-2xl font-bold text-white mb-2">Trial Expired</h1>
             <p className="text-white/80">
-              Your subscription has expired or payment failed
+              Your 7-day free trial has ended
             </p>
           </div>
 
@@ -52,7 +52,7 @@ export default function SubscriptionLockedPage() {
                 <div>
                   <p className="font-medium text-amber-800">Action Required</p>
                   <p className="text-sm text-amber-700 mt-1">
-                    Your access to Pronote has been temporarily suspended. Please update your payment method to continue using all features.
+                    Your 7-day free trial has ended. Please choose a subscription plan to continue accessing Pronote. Your data is safe and will be restored as soon as you subscribe.
                   </p>
                 </div>
               </div>
@@ -83,19 +83,19 @@ export default function SubscriptionLockedPage() {
             <div className="space-y-3">
               <Button 
                 className="w-full" 
-                onClick={() => window.open('https://billing.stripe.com', '_blank')}
+                onClick={() => navigate('/#pricing')}
               >
                 <CreditCard size={18} className="mr-2" />
-                Update Payment Method
+                Choose a Plan
                 <ArrowRight size={18} className="ml-2" />
               </Button>
 
               <Button 
                 variant="outline" 
                 className="w-full"
-                onClick={() => navigate('/pricing')}
+                onClick={() => navigate('/settings')}
               >
-                View Plans & Pricing
+                Manage Account
               </Button>
             </div>
 

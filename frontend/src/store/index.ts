@@ -140,7 +140,7 @@ export const useAuthStore = create<AuthState>()(
               specialty: 'General Medicine',
               subscriptionStatus: 'active',
               subscriptionPlan: 'practice',
-              trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+              trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
               createdAt: new Date(),
             };
             
@@ -177,7 +177,7 @@ export const useAuthStore = create<AuthState>()(
               specialty,
               subscriptionStatus: 'trial',
               subscriptionPlan: 'practice',
-              trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+              trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
               createdAt: new Date(),
             };
             
