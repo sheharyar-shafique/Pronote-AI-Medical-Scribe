@@ -210,8 +210,8 @@ export default function SettingsPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
-          <p className="text-gray-600">
+          <h1 className="text-3xl font-black text-white mb-2">Settings</h1>
+          <p className="text-slate-400">
             Manage your account settings and preferences.
           </p>
         </motion.div>
@@ -223,47 +223,44 @@ export default function SettingsPage() {
             animate={{ opacity: 1, x: 0 }}
             className="lg:w-64 flex-shrink-0"
           >
-            <Card className="p-2">
+            <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-2">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left ${
                     activeTab === tab.id
-                      ? 'bg-emerald-50 text-emerald-600'
-                      : 'text-gray-600 hover:bg-gray-50'
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+                      : 'text-slate-400 hover:bg-white/[0.06] hover:text-white'
                   }`}
                 >
                   {tab.icon}
-                  <span className="font-medium">{tab.label}</span>
+                  <span className="font-semibold text-sm">{tab.label}</span>
                 </button>
               ))}
-            </Card>
+            </div>
 
             {/* Subscription Card */}
-            <Card className="p-4 mt-4">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-gray-700">Current Plan</span>
-                <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+            <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-4 mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-bold text-white">Current Plan</span>
+                <span className="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">
                   {user?.subscriptionPlan || 'Trial'}
                 </span>
               </div>
-              <p className="text-sm text-gray-500 mb-3">
-                {user?.subscriptionStatus === 'trial' 
+              <p className="text-xs text-slate-400 mb-3">
+                {user?.subscriptionStatus === 'trial'
                   ? 'Your trial ends in 7 days'
                   : `${user?.subscriptionPlan} plan`
                 }
               </p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-full"
+              <button
+                className="w-full py-2 border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
                 onClick={() => setShowUpgradeModal(true)}
               >
-                <CreditCard size={16} className="mr-2" />
-                Upgrade Plan
-              </Button>
-            </Card>
+                <CreditCard size={14} /> Upgrade Plan
+              </button>
+            </div>
           </motion.div>
 
           {/* Content Area */}
@@ -273,211 +270,123 @@ export default function SettingsPage() {
             className="flex-1"
           >
             {activeTab === 'general' && (
-              <Card className="p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-6">General Settings</h2>
-                
+              <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6">
+                <h2 className="text-lg font-black text-white mb-6">General Settings</h2>
                 <div className="space-y-6">
-                  <Input
-                    label="Full Name"
-                    value={profileForm.name}
-                    onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                  />
-                  
-                  <Input
-                    label="Email"
-                    type="email"
-                    value={profileForm.email}
-                    onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-                    disabled
-                    helperText="Email cannot be changed"
-                  />
-                  
-                  <Select
-                    label="Specialty"
-                    value={profileForm.specialty}
-                    onChange={(e) => setProfileForm({ ...profileForm, specialty: e.target.value })}
-                    options={specialties.map(s => ({ value: s, label: s }))}
-                  />
-
-                  <div className="pt-4 border-t border-gray-200">
-                    <Button onClick={handleProfileSave}>
+                  <Input label="Full Name" value={profileForm.name} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })} />
+                  <Input label="Email" type="email" value={profileForm.email} onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })} disabled helperText="Email cannot be changed" />
+                  <Select label="Specialty" value={profileForm.specialty} onChange={(e) => setProfileForm({ ...profileForm, specialty: e.target.value })} options={specialties.map(s => ({ value: s, label: s }))} />
+                  <div className="pt-4 border-t border-white/[0.08]">
+                    <button onClick={handleProfileSave} className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/25 hover:opacity-90 transition-all text-sm">
                       Save Changes
-                    </Button>
+                    </button>
                   </div>
                 </div>
-              </Card>
+              </div>
             )}
 
             {activeTab === 'notifications' && (
-              <Card className="p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-6">Notification Settings</h2>
-                
+              <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6">
+                <h2 className="text-lg font-black text-white mb-6">Notification Settings</h2>
                 <div className="space-y-6">
-                  <Toggle
-                    enabled={notifications}
-                    onChange={toggleNotifications}
-                    label="Push Notifications"
-                    description="Receive notifications about your notes and account"
-                  />
-                  
-                  <Toggle
-                    enabled={autoSave}
-                    onChange={toggleAutoSave}
-                    label="Auto-Save"
-                    description="Automatically save notes while editing"
-                  />
-
-                  <div className="pt-4 border-t border-gray-200">
-                    <h3 className="font-medium text-gray-900 mb-4">Email Notifications</h3>
+                  <Toggle enabled={notifications} onChange={toggleNotifications} label="Push Notifications" description="Receive notifications about your notes and account" />
+                  <Toggle enabled={autoSave} onChange={toggleAutoSave} label="Auto-Save" description="Automatically save notes while editing" />
+                  <div className="pt-4 border-t border-white/[0.08]">
+                    <h3 className="font-bold text-white mb-4">Email Notifications</h3>
                     <div className="space-y-4">
-                      <Toggle
-                        enabled={weeklySummary}
-                        onChange={toggleWeeklySummary}
-                        label="Weekly Summary"
-                        description="Receive a weekly summary of your activity"
-                      />
-                      <Toggle
-                        enabled={noteReminders}
-                        onChange={toggleNoteReminders}
-                        label="Note Reminders"
-                        description="Get reminded about unsigned notes"
-                      />
-                      <Toggle
-                        enabled={productUpdates}
-                        onChange={toggleProductUpdates}
-                        label="Product Updates"
-                        description="Learn about new features and improvements"
-                      />
+                      <Toggle enabled={weeklySummary} onChange={toggleWeeklySummary} label="Weekly Summary" description="Receive a weekly summary of your activity" />
+                      <Toggle enabled={noteReminders} onChange={toggleNoteReminders} label="Note Reminders" description="Get reminded about unsigned notes" />
+                      <Toggle enabled={productUpdates} onChange={toggleProductUpdates} label="Product Updates" description="Learn about new features and improvements" />
                     </div>
                   </div>
                 </div>
-              </Card>
+              </div>
             )}
 
             {activeTab === 'templates' && (
-              <Card className="p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-6">Template Settings</h2>
-                
+              <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6">
+                <h2 className="text-lg font-black text-white mb-6">Template Settings</h2>
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Default Template
-                  </label>
-                  <Select
-                    value={selectedTemplate}
-                    onChange={(e) => {
-                      const templateId = e.target.value as import('../types').NoteTemplate;
-                      setTemplate(templateId);
-                    }}
-                    options={templates.map(t => ({ value: t.id, label: t.name }))}
-                  />
-                  <p className="text-sm text-gray-500 mt-2">
-                    This template will be used by default when creating new notes.
-                  </p>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2">Default Template</label>
+                  <Select value={selectedTemplate} onChange={(e) => { const templateId = e.target.value as import('../types').NoteTemplate; setTemplate(templateId); }} options={templates.map(t => ({ value: t.id, label: t.name }))} />
+                  <p className="text-sm text-slate-500 mt-2">This template will be used by default when creating new notes.</p>
                 </div>
-
-                <div className="pt-4 border-t border-gray-200">
-                  <h3 className="font-medium text-gray-900 mb-4">Available Templates</h3>
+                <div className="pt-4 border-t border-white/[0.08]">
+                  <h3 className="font-bold text-white mb-4">Available Templates</h3>
                   <div className="grid gap-3">
                     {templates.map((template) => (
-                      <motion.div
-                        key={template.id}
-                        whileHover={{ scale: 1.01 }}
+                      <motion.div key={template.id} whileHover={{ scale: 1.01 }}
                         className={`p-4 border rounded-xl cursor-pointer transition-all ${
                           selectedTemplate === template.id
-                            ? 'border-emerald-500 bg-emerald-50'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-emerald-500/50 bg-emerald-500/10'
+                            : 'border-white/[0.08] bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]'
                         }`}
-                        onClick={() => setTemplate(template.id)}
-                      >
+                        onClick={() => setTemplate(template.id)}>
                         <div className="flex items-center justify-between">
                           <div>
-                            <h4 className="font-medium text-gray-900">{template.name}</h4>
-                            <p className="text-sm text-gray-500">{template.description}</p>
+                            <h4 className="font-bold text-white text-sm">{template.name}</h4>
+                            <p className="text-xs text-slate-400 mt-0.5">{template.description}</p>
                           </div>
-                          {selectedTemplate === template.id && (
-                            <Check size={20} className="text-emerald-500" />
-                          )}
+                          {selectedTemplate === template.id && <Check size={18} className="text-emerald-400" />}
                         </div>
                       </motion.div>
                     ))}
                   </div>
                 </div>
-              </Card>
+              </div>
             )}
 
             {activeTab === 'security' && (
-              <Card className="p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-6">Account & Security</h2>
-                
-                <div className="space-y-6">
-                  <div className="p-4 bg-gray-50 rounded-xl">
+              <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6">
+                <h2 className="text-lg font-black text-white mb-6">Account & Security</h2>
+                <div className="space-y-4">
+                  <div className="p-4 bg-white/[0.04] border border-white/[0.08] rounded-xl">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="font-medium text-gray-900">Change Password</h4>
-                        <p className="text-sm text-gray-500">Update your password regularly for security</p>
+                        <h4 className="font-bold text-white text-sm">Change Password</h4>
+                        <p className="text-xs text-slate-400 mt-0.5">Update your password regularly for security</p>
                       </div>
-                      <Button variant="outline" size="sm" onClick={() => setShowPasswordModal(true)}>
-                        <Lock size={14} className="mr-1" />
-                        Change
-                      </Button>
+                      <button onClick={() => setShowPasswordModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 border border-white/20 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg text-xs font-semibold transition-all">
+                        <Lock size={12} /> Change
+                      </button>
                     </div>
                   </div>
-
-                  <div className="p-4 bg-gray-50 rounded-xl">
+                  <div className="p-4 bg-white/[0.04] border border-white/[0.08] rounded-xl">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="font-medium text-gray-900">Two-Factor Authentication</h4>
-                        <p className="text-sm text-gray-500">
-                          {twoFactorEnabled 
-                            ? '2FA is enabled for your account' 
-                            : 'Add an extra layer of security'}
-                        </p>
+                        <h4 className="font-bold text-white text-sm">Two-Factor Authentication</h4>
+                        <p className="text-xs text-slate-400 mt-0.5">{twoFactorEnabled ? '2FA is enabled for your account' : 'Add an extra layer of security'}</p>
                       </div>
-                      <Button 
-                        variant={twoFactorEnabled ? "primary" : "outline"} 
-                        size="sm"
-                        onClick={handleToggle2FA}
-                        className={twoFactorEnabled ? "bg-emerald-500 hover:bg-emerald-600" : ""}
-                      >
-                        {twoFactorEnabled ? 'Enabled' : 'Enable'}
-                      </Button>
+                      <button onClick={handleToggle2FA} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${twoFactorEnabled ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'border border-white/20 text-slate-300 hover:bg-white/10'}`}>
+                        {twoFactorEnabled ? '✓ Enabled' : 'Enable'}
+                      </button>
                     </div>
                   </div>
-
-                  <div 
-                    className="p-4 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => setShowPrivacyModal(true)}
-                  >
+                  <div className="p-4 bg-white/[0.04] border border-white/[0.08] rounded-xl cursor-pointer hover:bg-white/[0.07] transition-colors" onClick={() => setShowPrivacyModal(true)}>
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="font-medium text-gray-900">Privacy Policy</h4>
-                        <p className="text-sm text-gray-500">View our privacy policy</p>
+                        <h4 className="font-bold text-white text-sm">Privacy Policy</h4>
+                        <p className="text-xs text-slate-400 mt-0.5">View our privacy policy</p>
                       </div>
-                      <ExternalLink size={18} className="text-gray-400" />
+                      <ExternalLink size={16} className="text-slate-500" />
                     </div>
                   </div>
-
-                  <div className="pt-4 border-t border-gray-200">
-                    <h3 className="font-medium text-gray-900 mb-4">Danger Zone</h3>
-                    <div className="p-4 border border-red-200 rounded-xl bg-red-50">
+                  <div className="pt-4 border-t border-white/[0.08]">
+                    <h3 className="font-bold text-red-400 mb-3 text-sm">Danger Zone</h3>
+                    <div className="p-4 border border-red-500/20 rounded-xl bg-red-500/5">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h4 className="font-medium text-red-700">Delete Account</h4>
-                          <p className="text-sm text-red-600">Permanently delete your account and all data</p>
+                          <h4 className="font-bold text-red-300 text-sm">Delete Account</h4>
+                          <p className="text-xs text-red-400/70 mt-0.5">Permanently delete your account and all data</p>
                         </div>
-                        <Button 
-                          className="bg-red-500 hover:bg-red-600" 
-                          size="sm"
-                          onClick={() => setShowDeleteModal(true)}
-                        >
-                          <Trash2 size={14} className="mr-1" />
-                          Delete
-                        </Button>
+                        <button onClick={() => setShowDeleteModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 rounded-lg text-xs font-bold transition-all">
+                          <Trash2 size={12} /> Delete
+                        </button>
                       </div>
                     </div>
                   </div>
                 </div>
-              </Card>
+              </div>
             )}
           </motion.div>
         </div>
