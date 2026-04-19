@@ -141,8 +141,8 @@ export default function CapturePage() {
     <Sidebar>
       <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1">Capture Conversation</h1>
-          <p className="text-slate-500">Record your patient visit and we'll auto-generate clinical notes.</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-white mb-1">Capture Conversation</h1>
+          <p className="text-slate-400">Record your patient visit and we'll auto-generate clinical notes.</p>
         </motion.div>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -158,7 +158,7 @@ export default function CapturePage() {
                   <label className="block text-sm font-medium text-slate-300 mb-2">Patient Name <span className="text-slate-500">(Optional)</span></label>
                   <input type="text" value={patientName} onChange={(e) => setPatientName(e.target.value)}
                     placeholder="Enter patient name"
-                    className="w-full px-4 py-3 rounded-xl border border-white/20 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 rounded-xl border border-white/[0.12] bg-white/5 text-white placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400/40 transition-all text-sm"
                     disabled={session.status !== 'idle'} />
                 </div>
 
@@ -174,8 +174,8 @@ export default function CapturePage() {
                         className="flex flex-col items-center"
                       >
                         <Loader2 size={64} className="text-emerald-500 animate-spin mb-4" />
-                        <p className="text-lg text-gray-600">Processing your recording...</p>
-                        <p className="text-sm text-gray-500 mt-2">Generating clinical notes with AI</p>
+                        <p className="text-lg text-white">Processing your recording...</p>
+                        <p className="text-sm text-slate-400 mt-2">Generating clinical notes with AI</p>
                       </motion.div>
                     ) : (
                       <motion.div
@@ -280,8 +280,8 @@ export default function CapturePage() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
           >
-             <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-              <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+             <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6">
+              <h3 className="font-bold text-white mb-4 flex items-center gap-2">
                 <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
                   <FileText size={16} className="text-white" />
                 </div>
@@ -296,9 +296,9 @@ export default function CapturePage() {
                   options={templates.map((t) => ({ value: t.id, label: t.name }))}
                 />
 
-                <div className="pt-4 border-t border-slate-100">
-                  <h4 className="text-sm font-medium text-slate-700 mb-2">Template Sections</h4>
-                  <ul className="text-sm text-slate-600 space-y-1.5">
+                <div className="pt-4 border-t border-white/[0.08]">
+                  <h4 className="text-sm font-semibold text-slate-300 mb-2">Template Sections</h4>
+                  <ul className="text-sm text-slate-400 space-y-1.5">
                     {templates.find((t) => t.id === selectedTemplate)?.sections.map((section, i) => (
                       <li key={i} className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
@@ -311,16 +311,16 @@ export default function CapturePage() {
             </div>
 
             {/* Recent Recordings Info */}
-             <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm mt-4">
-              <h4 className="font-medium text-slate-900 mb-3">Session Info</h4>
+             <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6 mt-4">
+              <h4 className="font-bold text-white mb-3">Session Info</h4>
               <div className="space-y-2.5 text-sm">
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-500">Status</span>
-                  <span className={`font-semibold capitalize px-2.5 py-0.5 rounded-full text-xs ${session.status === 'recording' ? 'bg-red-100 text-red-600' : session.status === 'paused' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-600'}`}>{session.status}</span>
+                  <span className="text-slate-400">Status</span>
+                  <span className={`font-bold capitalize px-2.5 py-0.5 rounded-full text-xs ${session.status === 'recording' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : session.status === 'paused' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-white/10 text-slate-400 border border-white/10'}`}>{session.status}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Duration</span>
-                  <span className="font-semibold text-slate-800 font-mono">{formatTime(session.duration)}</span>
+                  <span className="text-slate-400">Duration</span>
+                  <span className="font-bold text-white font-mono">{formatTime(session.duration)}</span>
                 </div>
               </div>
             </div>

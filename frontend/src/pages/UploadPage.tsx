@@ -153,8 +153,8 @@ export default function UploadPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Upload Audio</h1>
-          <p className="text-gray-600">
+          <h1 className="text-3xl font-black text-white mb-2">Upload Audio</h1>
+          <p className="text-slate-400">
             Upload a pre-recorded audio file and we'll transcribe it into clinical notes.
           </p>
         </motion.div>
@@ -166,7 +166,7 @@ export default function UploadPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
             >
-              <Card className="p-6">
+              <Card className="p-6 bg-white/[0.04] border-white/[0.08]">
                 {/* Patient Name */}
                 <div className="mb-6">
                   <Input
@@ -186,10 +186,10 @@ export default function UploadPage() {
                   onClick={() => fileInputRef.current?.click()}
                   className={`border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer ${
                     isDragging
-                      ? 'border-emerald-500 bg-emerald-50'
+                      ? 'border-emerald-400 bg-emerald-500/10'
                       : file
-                      ? 'border-emerald-500 bg-emerald-50'
-                      : 'border-gray-300 hover:border-gray-400'
+                      ? 'border-emerald-400 bg-emerald-500/10'
+                      : 'border-white/[0.12] hover:border-white/25 hover:bg-white/[0.03]'
                   }`}
                 >
                   <input
@@ -204,35 +204,35 @@ export default function UploadPage() {
 
                   {!file ? (
                     <div>
-                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Upload size={28} className="text-gray-400" />
+                      <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Upload size={28} className="text-slate-400" />
                       </div>
-                      <p className="text-lg font-medium text-gray-900 mb-2">
+                      <p className="text-lg font-bold text-white mb-2">
                         Drop your audio file here
                       </p>
-                      <p className="text-gray-500 mb-4">or click to browse</p>
-                      <p className="text-sm text-gray-400">
+                      <p className="text-slate-400 mb-4">or click to browse</p>
+                      <p className="text-sm text-slate-500">
                         Supports MP3, WAV, M4A, OGG, WebM (Max 500MB)
                       </p>
                     </div>
                   ) : (
                     <div className="flex items-center justify-center gap-4">
-                      <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
-                        <FileAudio size={24} className="text-emerald-600" />
+                      <div className="w-12 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center">
+                        <FileAudio size={24} className="text-emerald-400" />
                       </div>
                       <div className="text-left">
-                        <p className="font-medium text-gray-900">{file.name}</p>
-                        <p className="text-sm text-gray-500">{formatFileSize(file.size)}</p>
+                        <p className="font-semibold text-white">{file.name}</p>
+                        <p className="text-sm text-slate-400">{formatFileSize(file.size)}</p>
                       </div>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           removeFile();
                         }}
-                        className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                        className="p-2 hover:bg-white/10 rounded-full transition-colors"
                         aria-label="Remove file"
                       >
-                        <X size={20} className="text-gray-500" />
+                        <X size={20} className="text-slate-400" />
                       </button>
                     </div>
                   )}
@@ -246,16 +246,16 @@ export default function UploadPage() {
                     className="mt-6"
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700">
+                      <span className="text-sm font-medium text-slate-300">
                         {progress < 30
                           ? 'Uploading...'
                           : progress < 60
                           ? 'Transcribing audio...'
                           : 'Generating notes...'}
                       </span>
-                      <span className="text-sm text-gray-500">{progress}%</span>
+                      <span className="text-sm text-slate-400">{progress}%</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-white/10 rounded-full h-2">
                       <motion.div
                         className="bg-emerald-500 h-2 rounded-full"
                         initial={{ width: 0 }}
@@ -294,8 +294,8 @@ export default function UploadPage() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <Card className="p-6">
-              <h3 className="font-semibold text-gray-900 mb-4">Note Settings</h3>
+            <Card className="p-6 bg-white/[0.04] border-white/[0.08]">
+              <h3 className="font-bold text-white mb-4">Note Settings</h3>
               
               <Select
                 label="Template"
@@ -304,8 +304,8 @@ export default function UploadPage() {
                 options={templates.map((t) => ({ value: t.id, label: t.name }))}
               />
 
-              <div className="mt-6 pt-4 border-t border-gray-200">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Supported Formats</h4>
+              <div className="mt-6 pt-4 border-t border-white/[0.08]">
+                <h4 className="text-sm font-semibold text-slate-300 mb-3">Supported Formats</h4>
                 <div className="space-y-2">
                   {[
                     { format: 'MP3', status: 'supported' },
@@ -315,8 +315,8 @@ export default function UploadPage() {
                     { format: 'WebM', status: 'supported' },
                   ].map((item) => (
                     <div key={item.format} className="flex items-center gap-2 text-sm">
-                      <CheckCircle size={16} className="text-emerald-500" />
-                      <span className="text-gray-600">{item.format}</span>
+                      <CheckCircle size={16} className="text-emerald-400" />
+                      <span className="text-slate-400">{item.format}</span>
                     </div>
                   ))}
                 </div>
@@ -324,12 +324,12 @@ export default function UploadPage() {
             </Card>
 
             {/* Tips */}
-            <Card className="p-6 mt-4">
-              <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                <AlertCircle size={18} className="text-amber-500" />
+            <Card className="p-6 mt-4 bg-white/[0.04] border-white/[0.08]">
+              <h4 className="font-bold text-white mb-3 flex items-center gap-2">
+                <AlertCircle size={18} className="text-amber-400" />
                 Best Practices
               </h4>
-              <ul className="text-sm text-gray-600 space-y-2">
+              <ul className="text-sm text-slate-400 space-y-2">
                 <li>• Ensure audio is clear and audible</li>
                 <li>• Avoid excessive background noise</li>
                 <li>• Longer files may take more time</li>

@@ -275,8 +275,8 @@ export default function DictationPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Voice Dictation</h1>
-          <p className="text-gray-600">
+          <h1 className="text-3xl font-black text-white mb-2">Voice Dictation</h1>
+          <p className="text-slate-400">
             Dictate your clinical notes directly. Speak naturally and we'll transcribe in real-time.
           </p>
         </motion.div>
@@ -289,7 +289,7 @@ export default function DictationPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
             >
-              <Card className="p-6">
+              <Card className="p-6 bg-white/[0.04] border-white/[0.08]">
                 <div className="flex flex-col items-center">
                   {/* Microphone Button */}
                   <motion.button
@@ -325,7 +325,7 @@ export default function DictationPage() {
                     )}
                   </motion.button>
                   
-                  <p className={`mt-4 font-medium ${isListening ? 'text-red-500' : 'text-gray-600'}`}>
+                  <p className={`mt-4 font-medium ${isListening ? 'text-red-400' : 'text-slate-400'}`}>
                     {isListening ? 'Listening... Click to stop' : 'Click to start dictation'}
                   </p>
                   
@@ -340,7 +340,7 @@ export default function DictationPage() {
                         transition={{ repeat: Infinity, duration: 0.5 }}
                         className="w-2 h-2 bg-red-500 rounded-full"
                       />
-                      <span className="text-sm text-gray-500">Recording audio</span>
+                      <span className="text-sm text-slate-400">Recording audio</span>
                     </motion.div>
                   )}
                 </div>
@@ -353,9 +353,9 @@ export default function DictationPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
             >
-              <Card className="p-6">
+              <Card className="p-6 bg-white/[0.04] border-white/[0.08]">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900">Transcript</h2>
+                  <h2 className="text-lg font-bold text-white">Transcript</h2>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setIsMuted(!isMuted)}
@@ -375,7 +375,7 @@ export default function DictationPage() {
                     <button
                       onClick={handleClear}
                       disabled={!transcript}
-                      className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors disabled:opacity-50"
+                      className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors disabled:opacity-50"
                       title="Clear transcript"
                     >
                       <RotateCcw size={18} />
@@ -389,17 +389,17 @@ export default function DictationPage() {
                     value={transcript + (interimTranscript ? ` ${interimTranscript}` : '')}
                     onChange={(e) => setTranscript(e.target.value)}
                     placeholder="Your dictation will appear here... Start speaking or type directly."
-                    className="w-full h-64 p-4 border border-gray-200 rounded-xl resize-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-gray-700"
+                    className="w-full h-64 p-4 border border-white/[0.1] rounded-xl resize-none focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400/40 bg-white/5 text-white placeholder-white/25 text-sm"
                   />
                   
                   {interimTranscript && (
-                    <span className="absolute bottom-4 left-4 text-gray-400 italic">
+                    <span className="absolute bottom-4 left-4 text-slate-500 italic">
                       {interimTranscript}
                     </span>
                   )}
                 </div>
                 
-                <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
+                <div className="flex items-center justify-between mt-4 text-sm text-slate-500">
                   <span>{transcript.split(/\s+/).filter(Boolean).length} words</span>
                   <span>{transcript.length} characters</span>
                 </div>
@@ -440,12 +440,12 @@ export default function DictationPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
             >
-              <Card className="p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Settings</h2>
+              <Card className="p-6 bg-white/[0.04] border-white/[0.08]">
+                <h2 className="text-lg font-bold text-white mb-4">Settings</h2>
                 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
                       Patient Name
                     </label>
                     <input
@@ -453,12 +453,12 @@ export default function DictationPage() {
                       value={patientName}
                       onChange={(e) => setPatientName(e.target.value)}
                       placeholder="Enter patient name"
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      className="w-full px-4 py-2.5 border border-white/[0.1] rounded-xl focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400/40 bg-white/5 text-white placeholder-white/25 text-sm"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
                       Note Template
                     </label>
                     <Select
@@ -477,9 +477,9 @@ export default function DictationPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <Card className="p-6 bg-emerald-50 border-emerald-100">
-                <h3 className="font-semibold text-emerald-800 mb-3">💡 Dictation Tips</h3>
-                <ul className="space-y-2 text-sm text-emerald-700">
+              <Card className="p-6 bg-emerald-500/10 border border-emerald-500/20">
+                <h3 className="font-bold text-emerald-400 mb-3">💡 Dictation Tips</h3>
+                <ul className="space-y-2 text-sm text-emerald-300/80">
                   <li>• Speak clearly and at a moderate pace</li>
                   <li>• Say "period" or "comma" for punctuation</li>
                   <li>• Use "new line" or "new paragraph" for formatting</li>
@@ -495,20 +495,20 @@ export default function DictationPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <Card className="p-6">
-                <h3 className="font-semibold text-gray-900 mb-3">Voice Commands</h3>
+              <Card className="p-6 bg-white/[0.04] border-white/[0.08]">
+                <h3 className="font-bold text-white mb-3">Voice Commands</h3>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">"Delete last"</span>
-                    <span className="text-gray-400">Remove word</span>
+                    <span className="text-slate-300">"Delete last"</span>
+                    <span className="text-slate-500">Remove word</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">"Clear all"</span>
-                    <span className="text-gray-400">Reset transcript</span>
+                    <span className="text-slate-300">"Clear all"</span>
+                    <span className="text-slate-500">Reset transcript</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">"New section"</span>
-                    <span className="text-gray-400">Start new section</span>
+                    <span className="text-slate-300">"New section"</span>
+                    <span className="text-slate-500">Start new section</span>
                   </div>
                 </div>
               </Card>

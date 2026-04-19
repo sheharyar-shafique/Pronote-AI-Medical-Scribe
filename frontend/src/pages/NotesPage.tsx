@@ -182,8 +182,8 @@ ${note.transcription || 'No transcription available'}
           className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6"
         >
           <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1">Clinical Notes</h1>
-            <p className="text-slate-500">Manage and review all your clinical documentation.</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-white mb-1">Clinical Notes</h1>
+            <p className="text-slate-400">Manage and review all your clinical documentation.</p>
           </div>
           <div className="flex gap-3">
             <Button
@@ -211,53 +211,53 @@ ${note.transcription || 'No transcription available'}
           transition={{ delay: 0.05 }}
           className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6"
         >
-          <div onClick={() => setFilterStatus('all')} className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 p-4 shadow-sm cursor-pointer hover:shadow-md transition-all">
+          <div onClick={() => setFilterStatus('all')} className="relative overflow-hidden bg-white/[0.04] border border-white/[0.08] rounded-2xl p-4 cursor-pointer hover:bg-white/[0.07] transition-all">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500">Total Notes</p>
-                <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
+                <p className="text-sm text-slate-400">Total Notes</p>
+                <p className="text-2xl font-black text-white">{stats.total}</p>
               </div>
               <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-slate-500 to-slate-700 flex items-center justify-center text-white shadow">
                 <FileText size={20} />
               </div>
             </div>
-            <div className="absolute -right-3 -bottom-3 w-16 h-16 rounded-full bg-slate-500/5" />
+            <div className="absolute -right-3 -bottom-3 w-16 h-16 rounded-full bg-slate-500/10" />
           </div>
-          <div onClick={() => setFilterStatus('draft')} className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 p-4 shadow-sm cursor-pointer hover:shadow-md transition-all">
+          <div onClick={() => setFilterStatus('draft')} className="relative overflow-hidden bg-white/[0.04] border border-white/[0.08] rounded-2xl p-4 cursor-pointer hover:bg-white/[0.07] transition-all">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500">Drafts</p>
-                <p className="text-2xl font-bold text-amber-600">{stats.draft}</p>
+                <p className="text-sm text-slate-400">Drafts</p>
+                <p className="text-2xl font-black text-amber-400">{stats.draft}</p>
               </div>
               <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shadow">
                 <Clock size={20} />
               </div>
             </div>
-            <div className="absolute -right-3 -bottom-3 w-16 h-16 rounded-full bg-amber-500/5" />
+            <div className="absolute -right-3 -bottom-3 w-16 h-16 rounded-full bg-amber-500/10" />
           </div>
-          <div onClick={() => setFilterStatus('completed')} className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 p-4 shadow-sm cursor-pointer hover:shadow-md transition-all">
+          <div onClick={() => setFilterStatus('completed')} className="relative overflow-hidden bg-white/[0.04] border border-white/[0.08] rounded-2xl p-4 cursor-pointer hover:bg-white/[0.07] transition-all">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500">Completed</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.completed}</p>
+                <p className="text-sm text-slate-400">Completed</p>
+                <p className="text-2xl font-black text-blue-400">{stats.completed}</p>
               </div>
               <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white shadow">
                 <CheckCircle size={20} />
               </div>
             </div>
-            <div className="absolute -right-3 -bottom-3 w-16 h-16 rounded-full bg-blue-500/5" />
+            <div className="absolute -right-3 -bottom-3 w-16 h-16 rounded-full bg-blue-500/10" />
           </div>
-          <div onClick={() => setFilterStatus('signed')} className="relative overflow-hidden bg-white rounded-2xl border border-slate-100 p-4 shadow-sm cursor-pointer hover:shadow-md transition-all">
+          <div onClick={() => setFilterStatus('signed')} className="relative overflow-hidden bg-white/[0.04] border border-white/[0.08] rounded-2xl p-4 cursor-pointer hover:bg-white/[0.07] transition-all">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500">Signed</p>
-                <p className="text-2xl font-bold text-emerald-600">{stats.signed}</p>
+                <p className="text-sm text-slate-400">Signed</p>
+                <p className="text-2xl font-black text-emerald-400">{stats.signed}</p>
               </div>
               <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white shadow">
                 <CheckCircle size={20} />
               </div>
             </div>
-            <div className="absolute -right-3 -bottom-3 w-16 h-16 rounded-full bg-emerald-500/5" />
+            <div className="absolute -right-3 -bottom-3 w-16 h-16 rounded-full bg-emerald-500/10" />
           </div>
         </motion.div>
 
@@ -273,7 +273,7 @@ ${note.transcription || 'No transcription available'}
               <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input type="text" placeholder="Search by patient name, template, status..."
                 value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-slate-900 placeholder-slate-400 transition-all" />
+                className="w-full pl-11 pr-4 py-3 border border-white/[0.1] rounded-xl bg-white/5 focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400/40 text-white placeholder-white/25 transition-all text-sm" />
             </div>
             <Button
               variant="outline"
@@ -295,14 +295,14 @@ ${note.transcription || 'No transcription available'}
                 exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden"
               >
-            <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
+            <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-4">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Status</label>
                       <select
                         value={filterStatus}
                         onChange={(e) => setFilterStatus(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-white/[0.1] rounded-lg bg-white/5 text-white focus:ring-2 focus:ring-emerald-400/50"
                         aria-label="Filter by status"
                       >
                         <option value="all">All Status</option>
@@ -312,11 +312,11 @@ ${note.transcription || 'No transcription available'}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Template</label>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Template</label>
                       <select
                         value={filterTemplate}
                         onChange={(e) => setFilterTemplate(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-white/[0.1] rounded-lg bg-white/5 text-white focus:ring-2 focus:ring-emerald-400/50"
                         aria-label="Filter by template"
                       >
                         <option value="all">All Templates</option>
@@ -326,11 +326,11 @@ ${note.transcription || 'No transcription available'}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Date</label>
                       <select
                         value={filterDate}
                         onChange={(e) => setFilterDate(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-white/[0.1] rounded-lg bg-white/5 text-white focus:ring-2 focus:ring-emerald-400/50"
                         aria-label="Filter by date"
                       >
                         <option value="all">All Time</option>
@@ -341,12 +341,12 @@ ${note.transcription || 'No transcription available'}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Sort By</label>
                       <div className="flex gap-2">
                         <select
                           value={sortBy}
                           onChange={(e) => setSortBy(e.target.value as 'date' | 'name' | 'status')}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                          className="flex-1 px-3 py-2 border border-white/[0.1] rounded-lg bg-white/5 text-white focus:ring-2 focus:ring-emerald-400/50"
                           aria-label="Sort by"
                         >
                           <option value="date">Date</option>
@@ -355,7 +355,7 @@ ${note.transcription || 'No transcription available'}
                         </select>
                         <button
                           onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                          className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                          className="px-3 py-2 border border-white/[0.1] rounded-lg bg-white/5 text-white hover:bg-white/10"
                           title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
                         >
                           {sortOrder === 'asc' ? '↑' : '↓'}
@@ -364,8 +364,8 @@ ${note.transcription || 'No transcription available'}
                     </div>
                   </div>
                   {(filterStatus !== 'all' || filterTemplate !== 'all' || filterDate !== 'all') && (
-                    <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
-                      <p className="text-sm text-gray-500">
+                    <div className="mt-4 pt-4 border-t border-white/[0.1] flex items-center justify-between">
+                      <p className="text-sm text-slate-400">
                         Showing {filteredNotes.length} of {notes.length} notes
                       </p>
                       <Button
@@ -396,7 +396,7 @@ ${note.transcription || 'No transcription available'}
           >
             <div className="flex flex-col items-center gap-3">
               <RefreshCw size={32} className="animate-spin text-emerald-500" />
-              <p className="text-gray-500">Loading notes...</p>
+              <p className="text-slate-400">Loading notes...</p>
             </div>
           </motion.div>
         )}
@@ -407,12 +407,12 @@ ${note.transcription || 'No transcription available'}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            <Card className="p-6 border-red-200 bg-red-50">
+            <Card className="p-6 border-red-500/20 bg-red-500/5">
               <div className="flex items-center gap-3">
                 <AlertCircle size={24} className="text-red-500" />
                 <div>
-                  <h3 className="font-medium text-red-700">Failed to load notes</h3>
-                  <p className="text-sm text-red-600">{error}</p>
+                  <h3 className="font-medium text-red-100">Failed to load notes</h3>
+                  <p className="text-sm text-red-300">{error}</p>
                 </div>
                 <Button variant="outline" onClick={handleRefresh} className="ml-auto">
                   Try Again
@@ -428,12 +428,12 @@ ${note.transcription || 'No transcription available'}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            <Card className="p-12 text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FileText size={28} className="text-gray-400" />
+            <Card className="p-12 text-center border-white/[0.08] bg-white/[0.02]">
+              <div className="w-16 h-16 bg-white/[0.05] rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileText size={28} className="text-slate-500" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No notes found</h3>
-              <p className="text-gray-500 mb-6">
+              <h3 className="text-lg font-medium text-white mb-2">No notes found</h3>
+              <p className="text-slate-400 mb-6">
                 {searchQuery ? 'Try adjusting your search or filters' : 'Start by recording or uploading a conversation'}
               </p>
               <Link to="/capture">
@@ -456,33 +456,33 @@ ${note.transcription || 'No transcription available'}
                 transition={{ delay: Math.min(0.05 * index, 0.5) }}
                 layout
               >
-                <div className="bg-white rounded-2xl border border-slate-100 p-5 hover:shadow-md transition-all hover:border-emerald-200">
+                <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5 hover:bg-white/[0.07] transition-all hover:border-emerald-500/30">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
                         note.status === 'signed' 
-                          ? 'bg-emerald-100' 
+                          ? 'bg-emerald-500/10' 
                           : note.status === 'completed'
-                          ? 'bg-blue-100'
-                          : 'bg-amber-100'
+                          ? 'bg-blue-500/10'
+                          : 'bg-amber-500/10'
                       }`}>
                         <span className={`font-semibold text-lg ${
                           note.status === 'signed'
-                            ? 'text-emerald-600'
+                            ? 'text-emerald-400'
                             : note.status === 'completed'
-                            ? 'text-blue-600'
-                            : 'text-amber-600'
+                            ? 'text-blue-400'
+                            : 'text-amber-400'
                         }`}>
                           {note.patientName?.charAt(0)?.toUpperCase() || 'P'}
                         </span>
                       </div>
                       <div>
                         <Link to={`/notes/${note.id}`}>
-                          <h3 className="font-semibold text-gray-900 hover:text-emerald-600 transition-colors">
+                          <h3 className="font-semibold text-white hover:text-emerald-400 transition-colors">
                             {note.patientName || 'Unknown Patient'}
                           </h3>
                         </Link>
-                        <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                        <div className="flex items-center gap-3 text-sm text-slate-400 mt-1">
                           <span className="flex items-center gap-1">
                             <Calendar size={14} />
                             {formatRelativeDate(new Date(note.dateOfService))}
@@ -515,10 +515,10 @@ ${note.transcription || 'No transcription available'}
                             e.stopPropagation();
                             setActiveMenu(activeMenu === note.id ? null : note.id);
                           }}
-                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                           aria-label="More options"
                         >
-                          <MoreVertical size={18} className="text-gray-500" />
+                          <MoreVertical size={18} className="text-slate-500" />
                         </button>
                         <AnimatePresence>
                           {activeMenu === note.id && (
@@ -526,19 +526,19 @@ ${note.transcription || 'No transcription available'}
                               initial={{ opacity: 0, scale: 0.95 }}
                               animate={{ opacity: 1, scale: 1 }}
                               exit={{ opacity: 0, scale: 0.95 }}
-                              className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-gray-200 py-1 w-40 z-10"
+                              className="absolute right-0 top-full mt-1 bg-[#1a2332] rounded-xl shadow-2xl border border-white/[0.1] py-1 w-40 z-10"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <Link
                                 to={`/notes/${note.id}`}
-                                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                className="flex items-center gap-2 px-4 py-2 text-sm text-slate-300 hover:bg-white/10 hover:text-white"
                                 onClick={() => setActiveMenu(null)}
                               >
                                 <Edit size={16} />
                                 Edit Note
                               </Link>
                               <button
-                                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full"
+                                className="flex items-center gap-2 px-4 py-2 text-sm text-slate-300 hover:bg-white/10 hover:text-white w-full"
                                 onClick={() => handleExport(note)}
                               >
                                 <Download size={16} />
@@ -572,7 +572,7 @@ ${note.transcription || 'No transcription available'}
           onClose={() => setDeleteModal({ isOpen: false, noteId: null })}
           title="Delete Note"
         >
-          <p className="text-gray-600 mb-6">
+          <p className="text-slate-400 mb-6">
             Are you sure you want to delete this note? This action cannot be undone.
           </p>
           <div className="flex gap-3 justify-end">
