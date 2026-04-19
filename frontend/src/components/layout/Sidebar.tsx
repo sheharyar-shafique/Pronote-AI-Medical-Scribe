@@ -234,7 +234,7 @@ export default function Sidebar({ children }: SidebarProps) {
         initial={false}
         animate={{ marginLeft: isDesktop ? (isCollapsed ? 72 : 256) : 0 }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className="flex-1 mt-16 lg:mt-0 min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50"
+        className="flex-1 mt-16 lg:mt-0 min-h-screen w-full max-w-full overflow-x-hidden bg-[#080f14]"
       >
         {children}
       </motion.main>
