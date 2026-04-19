@@ -107,6 +107,27 @@ export const authApi = {
     setAuthToken(response.token);
     return response;
   },
+
+  forgotPassword: async (email: string) => {
+    return apiFetch<{ message: string }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  verifyOtp: async (email: string, otp: string) => {
+    return apiFetch<{ message: string }>('/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    });
+  },
+
+  resetPassword: async (email: string, otp: string, newPassword: string) => {
+    return apiFetch<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp, newPassword }),
+    });
+  },
 };
 
 // Users API

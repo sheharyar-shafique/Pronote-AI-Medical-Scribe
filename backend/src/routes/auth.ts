@@ -6,6 +6,20 @@ import { signupSchema, loginSchema } from '../types/schemas.js';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { writeAuditLog } from '../middleware/auditLog.js';
+import { sendOtpEmail } from '../lib/mailer.js';
+
+// ── OTP Store (in-memory, resets on restart) ────────────────
+interface OtpRecord {
+  otp: string;
+  expiresAt: Date;
+  verified: boolean;
+}
+const otpStore = new Map<string, OtpRecord>();
+const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
+
+function generateOtp(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
 
 // Failed login tracking (in-memory, resets on restart)
 const failedLogins = new Map<string, { count: number; lockedUntil: Date | null }>();
@@ -340,6 +354,105 @@ router.post('/change-password', authenticate, async (req: AuthenticatedRequest, 
     });
 
     res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+// POST /api/auth/forgot-password — send OTP to email
+router.post('/forgot-password', async (req, res: Response, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) throw new AppError('Email is required', 400);
+
+    // Check user exists
+    const { data: user } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('email', email.trim().toLowerCase())
+      .single();
+
+    // Always respond success to prevent email enumeration
+    if (!user) {
+      return res.json({ message: 'If that email exists, an OTP has been sent.' });
+    }
+
+    const otp = generateOtp();
+    otpStore.set(email.toLowerCase(), {
+      otp,
+      expiresAt: new Date(Date.now() + OTP_EXPIRY_MS),
+      verified: false,
+    });
+
+    await sendOtpEmail(email, otp);
+
+    res.json({ message: 'OTP sent to your email. It expires in 10 minutes.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/auth/verify-otp — verify the 6-digit OTP
+router.post('/verify-otp', async (req, res: Response, next) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) throw new AppError('Email and OTP are required', 400);
+
+    const record = otpStore.get(email.toLowerCase());
+
+    if (!record) throw new AppError('No OTP request found. Please request a new one.', 400);
+    if (new Date() > record.expiresAt) {
+      otpStore.delete(email.toLowerCase());
+      throw new AppError('OTP has expired. Please request a new one.', 400);
+    }
+    if (record.otp !== otp.trim()) throw new AppError('Invalid OTP. Please try again.', 400);
+
+    // Mark as verified so reset-password can proceed
+    record.verified = true;
+    otpStore.set(email.toLowerCase(), record);
+
+    res.json({ message: 'OTP verified successfully.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/auth/reset-password — set new password after OTP verified
+router.post('/reset-password', async (req, res: Response, next) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      throw new AppError('Email, OTP and new password are required', 400);
+    }
+    if (newPassword.length < 8) {
+      throw new AppError('Password must be at least 8 characters', 400);
+    }
+
+    const record = otpStore.get(email.toLowerCase());
+
+    if (!record || !record.verified) {
+      throw new AppError('OTP not verified. Please complete verification first.', 400);
+    }
+    if (record.otp !== otp.trim()) throw new AppError('Invalid OTP.', 400);
+    if (new Date() > record.expiresAt) {
+      otpStore.delete(email.toLowerCase());
+      throw new AppError('OTP has expired. Please request a new one.', 400);
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    const { error } = await supabase
+      .from('users')
+      .update({ password_hash: passwordHash })
+      .eq('email', email.toLowerCase());
+
+    if (error) throw error;
+
+    // Clear OTP after successful reset
+    otpStore.delete(email.toLowerCase());
+
+    res.json({ message: 'Password reset successfully. You can now log in.' });
   } catch (error) {
     next(error);
   }
