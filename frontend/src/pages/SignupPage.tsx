@@ -240,21 +240,38 @@ export default function SignupPage() {
                 <label className="flex items-start gap-3 cursor-pointer group">
                   <div
                     onClick={() => setAgreedToTerms(!agreedToTerms)}
-                    className={`w-5 h-5 mt-0.5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${agreedToTerms ? 'bg-emerald-500 border-emerald-500' : 'border-white/20 bg-white/5'}`}
+                    className={`w-5 h-5 mt-0.5 rounded-md border flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${
+                      agreedToTerms
+                        ? 'bg-emerald-500 border-emerald-500 shadow-lg shadow-emerald-500/30'
+                        : errors.terms
+                        ? 'border-red-400/60 bg-red-400/10'
+                        : 'border-white/20 bg-white/5'
+                    }`}
                   >
                     {agreedToTerms && <Check size={12} className="text-white" strokeWidth={3} />}
                   </div>
                   <span className="text-xs text-white/40 leading-relaxed">
-                    I agree to the{' '}
-                    <a href="#" className="text-emerald-400 hover:text-emerald-300 font-medium">Terms of Service</a>{' '}
-                    and{' '}
-                    <a href="#" className="text-emerald-400 hover:text-emerald-300 font-medium">Privacy Policy</a>
+                    I have read and agree to the{' '}
+                    <a href="/terms" target="_blank" rel="noopener noreferrer"
+                      className="text-emerald-400 hover:text-emerald-300 font-semibold underline underline-offset-2 transition-colors"
+                      onClick={e => e.stopPropagation()}>
+                      Terms of Service
+                    </a>
+                    {' '}and{' '}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer"
+                      className="text-emerald-400 hover:text-emerald-300 font-semibold underline underline-offset-2 transition-colors"
+                      onClick={e => e.stopPropagation()}>
+                      Privacy Policy
+                    </a>
                   </span>
                 </label>
                 <AnimatePresence>
                   {errors.terms && (
-                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      className="mt-1 text-xs text-red-400">{errors.terms}</motion.p>
+                    <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      className="mt-2 flex items-center gap-2 text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">
+                      <span className="text-red-400">⚠</span>
+                      You must agree to the Terms of Service and Privacy Policy to create an account.
+                    </motion.div>
                   )}
                 </AnimatePresence>
               </motion.div>

@@ -18,6 +18,8 @@ import {
   SettingsPage,
   AdminPage,
   SubscriptionLockedPage,
+  TermsPage,
+  PrivacyPage,
 } from './pages';
 
 // HIPAA: Session inactivity timeout (30 minutes)
@@ -153,6 +155,8 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
         
         {/* Subscription Locked Route */}
         <Route
