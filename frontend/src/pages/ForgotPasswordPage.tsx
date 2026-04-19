@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ArrowRight, ArrowLeft, Mail, KeyRound, Eye, EyeOff, CheckCircle, RefreshCw } from 'lucide-react';
+import { Sparkles, ArrowRight, ArrowLeft, Mail, KeyRound, Eye, EyeOff, CheckCircle, RefreshCw, UserX, AlertCircle } from 'lucide-react';
 import { authApi } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -201,10 +201,20 @@ export default function ForgotPasswordPage() {
                   </div>
 
                   {error && (
-                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
-                      className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3">
-                      {error}
-                    </motion.p>
+                    <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                      className="flex items-start gap-3 text-sm bg-red-500/10 border border-red-500/25 rounded-xl px-4 py-3.5">
+                      {error.toLowerCase().includes('no account') || error.toLowerCase().includes('not found') || error.toLowerCase().includes('not exist') ? (
+                        <UserX size={18} className="text-red-400 flex-shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertCircle size={18} className="text-red-400 flex-shrink-0 mt-0.5" />
+                      )}
+                      <div>
+                        <p className="text-red-300 font-semibold text-xs uppercase tracking-wide mb-0.5">
+                          {error.toLowerCase().includes('no account') || error.toLowerCase().includes('not found') ? 'Account Not Found' : 'Error'}
+                        </p>
+                        <p className="text-red-400 text-sm leading-relaxed">{error}</p>
+                      </div>
+                    </motion.div>
                   )}
 
                   <motion.button type="submit" disabled={isLoading}

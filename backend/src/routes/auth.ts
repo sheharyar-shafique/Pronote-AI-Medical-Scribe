@@ -373,9 +373,9 @@ router.post('/forgot-password', async (req, res: Response, next) => {
       .eq('email', email.trim().toLowerCase())
       .single();
 
-    // Always respond success to prevent email enumeration
+    // Explicitly tell the user if the account doesn't exist
     if (!user) {
-      return res.json({ message: 'If that email exists, an OTP has been sent.' });
+      throw new AppError('No account found with this email address. Please check the email and try again.', 404);
     }
 
     const otp = generateOtp();
