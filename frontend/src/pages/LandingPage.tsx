@@ -30,7 +30,7 @@ export default function LandingPage() {
     return () => { document.body.style.overflow = ''; };
   }, [showDemo]);
 
-  const navLinks = ['Features', 'How It Works', 'Pricing', 'About'];
+  const navLinks = ['Features', 'How It Works', 'Pricing', 'Security', 'About'];
 
   return (
     <div className="min-h-screen bg-white overflow-x-hidden">
@@ -636,6 +636,211 @@ export default function LandingPage() {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ── Security ──────────────────────────── */}
+      <section id="security" className="relative py-28 bg-gradient-to-b from-slate-800 to-slate-900 overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.04]"
+          style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)', backgroundSize: '60px 60px' }} />
+        <div className="absolute top-0 left-1/3 w-[500px] h-[500px] bg-emerald-500/8 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/8 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-teal-500/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+          {/* Header */}
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            className="text-center mb-20">
+            <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium mb-5">
+              <Lock size={13} /> Security
+            </span>
+            <h2 className="text-4xl sm:text-5xl font-black text-white mb-5">
+              Enterprise-grade{' '}
+              <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">security.</span>
+            </h2>
+            <p className="text-lg text-slate-400 max-w-2xl mx-auto">
+              Every layer of Pronote is built with HIPAA compliance and patient data protection as the foundation — not an afterthought.
+            </p>
+          </motion.div>
+
+          {/* Hero trust bar */}
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16">
+            {[
+              { icon: <Shield size={22} />, label: 'HIPAA Compliant', gradient: 'from-emerald-400 to-teal-500' },
+              { icon: <Lock size={22} />, label: 'AES-256-GCM Encrypted', gradient: 'from-blue-400 to-indigo-500' },
+              { icon: <RefreshCw size={22} />, label: '24h JWT Sessions', gradient: 'from-violet-400 to-purple-500' },
+              { icon: <Zap size={22} />, label: 'Rate Limited APIs', gradient: 'from-amber-400 to-orange-500' },
+            ].map((item, i) => (
+              <motion.div key={i} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }} transition={{ delay: i * 0.08 }}
+                className="flex flex-col items-center gap-3 bg-white/[0.04] border border-white/10 rounded-2xl p-5 text-center hover:bg-white/[0.07] hover:border-white/20 transition-all duration-300 hover:-translate-y-1">
+                <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${item.gradient} flex items-center justify-center text-white shadow-lg`}>
+                  {item.icon}
+                </div>
+                <span className="text-white/80 text-sm font-semibold">{item.label}</span>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          {/* Main security cards grid */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+            {[
+              {
+                icon: <Lock size={22} />,
+                gradient: 'from-emerald-400 to-teal-500',
+                hoverBorder: 'hover:border-emerald-500/40',
+                hoverGlow: 'hover:shadow-emerald-500/20',
+                title: 'AES-256-GCM PHI Encryption',
+                desc: 'All Protected Health Information is encrypted at rest using AES-256-GCM — the gold standard for medical data. Each record gets a unique IV and authentication tag to detect tampering.',
+                badge: 'At Rest',
+              },
+              {
+                icon: <Shield size={22} />,
+                gradient: 'from-blue-400 to-indigo-500',
+                hoverBorder: 'hover:border-blue-500/40',
+                hoverGlow: 'hover:shadow-blue-500/20',
+                title: 'HIPAA-Compliant Audit Logs',
+                desc: 'Every data access, login attempt, note creation, and admin action is recorded in immutable audit logs with timestamps, IP addresses, and user agents for full regulatory traceability.',
+                badge: 'Compliance',
+              },
+              {
+                icon: <RefreshCw size={22} />,
+                gradient: 'from-violet-400 to-purple-500',
+                hoverBorder: 'hover:border-violet-500/40',
+                hoverGlow: 'hover:shadow-violet-500/20',
+                title: 'JWT Session Management',
+                desc: 'Authentication tokens expire in 24 hours per HIPAA session management requirements. Tokens are signed with a 256-bit secret and verified on every protected API request.',
+                badge: 'Auth',
+              },
+              {
+                icon: <Zap size={22} />,
+                gradient: 'from-amber-400 to-orange-500',
+                hoverBorder: 'hover:border-amber-500/40',
+                hoverGlow: 'hover:shadow-amber-500/20',
+                title: 'Rate Limiting & Brute Force Protection',
+                desc: 'API endpoints are rate-limited to 100 requests/15 min per IP. Login attempts are tracked — after 5 failures, accounts are automatically locked for 15 minutes to prevent brute force attacks.',
+                badge: 'DDoS Shield',
+              },
+              {
+                icon: <Users size={22} />,
+                gradient: 'from-rose-400 to-pink-500',
+                hoverBorder: 'hover:border-rose-500/40',
+                hoverGlow: 'hover:shadow-rose-500/20',
+                title: 'Role-Based Access Control',
+                desc: 'Strict RBAC separates clinician and admin privileges. Users can only access their own patient notes. Admins have dedicated routes with additional authentication guards.',
+                badge: 'RBAC',
+              },
+              {
+                icon: <Brain size={22} />,
+                gradient: 'from-cyan-400 to-sky-500',
+                hoverBorder: 'hover:border-cyan-500/40',
+                hoverGlow: 'hover:shadow-cyan-500/20',
+                title: 'bcrypt Password Hashing',
+                desc: 'Passwords are never stored in plain text. bcrypt with cost factor 12 is used to hash all passwords — making offline dictionary attacks computationally infeasible.',
+                badge: 'Credentials',
+              },
+            ].map((item, i) => (
+              <motion.div key={i} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }} transition={{ delay: i * 0.08 }}>
+                <div className={`group relative bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-2xl p-7 h-full
+                  hover:shadow-2xl ${item.hoverGlow} ${item.hoverBorder}
+                  transition-all duration-300 hover:-translate-y-2 cursor-default`}>
+                  <div className="flex items-start justify-between mb-5">
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${item.gradient} flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform duration-200`}>
+                      {item.icon}
+                    </div>
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full bg-gradient-to-r ${item.gradient} bg-opacity-10 text-white/60 border border-white/10`}>
+                      {item.badge}
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-bold text-white mb-3">{item.title}</h3>
+                  <p className="text-slate-400 text-sm leading-relaxed">{item.desc}</p>
+                  <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${item.gradient} opacity-0 group-hover:opacity-[0.06] rounded-2xl blur-2xl transition-opacity duration-300`} />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Bottom: Transport + Infrastructure row */}
+          <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="grid md:grid-cols-2 gap-6 mb-16">
+
+            {/* HTTPS + Helmet */}
+            <div className="group bg-white/[0.03] border border-white/10 rounded-2xl p-7 hover:border-emerald-500/30 hover:bg-white/[0.06] transition-all duration-300 hover:-translate-y-1">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white shadow-lg">
+                  <Shield size={22} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">TLS Encryption in Transit</h3>
+                  <span className="text-xs text-emerald-400 font-medium">Transport Security</span>
+                </div>
+              </div>
+              <p className="text-slate-400 text-sm leading-relaxed mb-4">
+                All data between client and server is encrypted via HTTPS/TLS. HTTP security headers are enforced using Helmet.js — preventing XSS, clickjacking, MIME sniffing, and other common web attacks.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {['HTTPS / TLS', 'Helmet.js Headers', 'CORS Policy', 'XSS Protection', 'HSTS Enabled'].map(t => (
+                  <span key={t} className="text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-full font-medium">{t}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* Infrastructure */}
+            <div className="group bg-white/[0.03] border border-white/10 rounded-2xl p-7 hover:border-blue-500/30 hover:bg-white/[0.06] transition-all duration-300 hover:-translate-y-1">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white shadow-lg">
+                  <Zap size={22} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Secure Infrastructure</h3>
+                  <span className="text-xs text-blue-400 font-medium">Cloud Architecture</span>
+                </div>
+              </div>
+              <p className="text-slate-400 text-sm leading-relaxed mb-4">
+                Backend runs on Render with environment-variable-only secrets — no keys in source code. Supabase provides a SOC 2 Type II certified database with row-level security policies.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {['Render Cloud', 'Supabase RLS', 'Env-Only Secrets', 'SOC 2 Type II', 'No Plaintext Keys'].map(t => (
+                  <span key={t} className="text-xs bg-blue-500/10 border border-blue-500/20 text-blue-400 px-2.5 py-1 rounded-full font-medium">{t}</span>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+
+          {/* HIPAA compliance banner */}
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            className="relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-emerald-500/10 p-8 text-center">
+            <div className="absolute top-0 left-1/4 w-64 h-32 bg-emerald-500/10 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 right-1/4 w-64 h-32 bg-teal-500/10 rounded-full blur-3xl" />
+            <div className="relative z-10">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-sm font-bold mb-4">
+                <Shield size={15} /> HIPAA Compliant Platform
+              </div>
+              <h3 className="text-2xl font-black text-white mb-3">
+                Your patients' privacy is our highest priority
+              </h3>
+              <p className="text-slate-400 max-w-2xl mx-auto text-sm leading-relaxed mb-6">
+                Pronote is built from the ground up to meet and exceed HIPAA requirements. Every technical safeguard — from AES-256 encryption to 24-hour session expiry — is intentionally designed for clinical environments.
+              </p>
+              <div className="flex flex-wrap justify-center gap-3">
+                {[
+                  '✓ Encryption at Rest',
+                  '✓ Encryption in Transit',
+                  '✓ Access Controls',
+                  '✓ Audit Logging',
+                  '✓ Session Timeout',
+                  '✓ Breach Notification Ready',
+                ].map(item => (
+                  <span key={item} className="text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full font-medium">{item}</span>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+
         </div>
       </section>
 
