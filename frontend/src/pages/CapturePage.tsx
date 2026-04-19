@@ -7,8 +7,9 @@ import {
   Play, 
   Square, 
   RotateCcw,
-  FileText,
-  Loader2
+  Loader2,
+  AlertTriangle,
+  Clock
 } from 'lucide-react';
 import { Sidebar } from '../components/layout';
 import { Card, Select } from '../components/ui';
@@ -17,6 +18,8 @@ import { templates } from '../data';
 import { audioApi, notesApi } from '../services/api';
 import toast from 'react-hot-toast';
 import type { ClinicalNote } from '../types';
+
+const MIN_RECORDING_SECONDS = 30;
 
 export default function CapturePage() {
   const navigate = useNavigate();
@@ -34,7 +37,13 @@ export default function CapturePage() {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [patientName, setPatientName] = useState('');
+  const [shakingStop, setShakingStop] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const isRecordingActive = session.status === 'recording' || session.status === 'paused';
+  const meetsMinDuration = session.duration >= MIN_RECORDING_SECONDS;
+  const remainingSeconds = Math.max(0, MIN_RECORDING_SECONDS - session.duration);
+  const minProgress = Math.min(100, (session.duration / MIN_RECORDING_SECONDS) * 100);
 
   useEffect(() => {
     if (session.status === 'recording') {
@@ -69,6 +78,16 @@ export default function CapturePage() {
   };
 
   const handleStopRecording = async () => {
+    // Enforce minimum 30-second recording
+    if (!meetsMinDuration) {
+      setShakingStop(true);
+      setTimeout(() => setShakingStop(false), 600);
+      toast.error(`Please record for at least 30 seconds. ${remainingSeconds}s remaining.`, {
+        icon: '⏱️',
+        duration: 3000,
+      });
+      return;
+    }
     setIsProcessing(true);
     try {
       const audioBlob = await stopRecording();
@@ -185,9 +204,38 @@ export default function CapturePage() {
                         exit={{ opacity: 0, scale: 0.9 }}
                       >
                         <motion.p key={session.duration} initial={{ scale: 1.1 }} animate={{ scale: 1 }}
-                          className="text-7xl font-mono font-bold text-white mb-4 tabular-nums tracking-tight">
+                          className={`text-7xl font-mono font-bold mb-4 tabular-nums tracking-tight ${
+                            isRecordingActive && !meetsMinDuration ? 'text-amber-400' : 'text-white'
+                          }`}>
                           {formatTime(session.duration)}
                         </motion.p>
+                        
+                        {/* Minimum duration progress bar */}
+                        {isRecordingActive && !meetsMinDuration && (
+                          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+                            <div className="flex items-center justify-center gap-2 mb-2">
+                              <Clock size={14} className="text-amber-400" />
+                              <span className="text-amber-400 text-xs font-bold uppercase tracking-wider">
+                                Minimum: {remainingSeconds}s remaining
+                              </span>
+                            </div>
+                            <div className="w-48 mx-auto h-1.5 bg-white/10 rounded-full overflow-hidden">
+                              <motion.div
+                                className="h-full bg-gradient-to-r from-amber-400 to-emerald-400 rounded-full"
+                                initial={{ width: 0 }}
+                                animate={{ width: `${minProgress}%` }}
+                                transition={{ duration: 0.3 }}
+                              />
+                            </div>
+                          </motion.div>
+                        )}
+
+                        {meetsMinDuration && isRecordingActive && (
+                          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+                            className="flex items-center justify-center gap-2 mb-2">
+                            <span className="text-emerald-400 text-xs font-bold">✓ Minimum reached — stop when ready</span>
+                          </motion.div>
+                        )}
                         
                         {session.status === 'recording' && (
                           <motion.div
@@ -232,11 +280,29 @@ export default function CapturePage() {
                         className="w-16 h-16 bg-amber-500/20 border-2 border-amber-400 rounded-full flex items-center justify-center text-amber-400 shadow-lg">
                         <Pause size={22} />
                       </motion.button>
-                      <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
-                        onClick={handleStopRecording}
-                        className="w-24 h-24 bg-red-500 rounded-full flex items-center justify-center text-white shadow-2xl shadow-red-500/40">
-                        <Square size={30} />
-                      </motion.button>
+                      <motion.div
+                        animate={shakingStop ? { x: [-6, 6, -6, 6, 0] } : {}}
+                        transition={{ duration: 0.4 }}
+                        className="relative"
+                      >
+                        <motion.button
+                          whileHover={{ scale: meetsMinDuration ? 1.06 : 1.02 }}
+                          whileTap={{ scale: meetsMinDuration ? 0.94 : 0.98 }}
+                          onClick={handleStopRecording}
+                          title={!meetsMinDuration ? `Record at least ${remainingSeconds}s more` : 'Stop and process'}
+                          className={`w-24 h-24 rounded-full flex items-center justify-center text-white shadow-2xl transition-all ${
+                            meetsMinDuration
+                              ? 'bg-red-500 shadow-red-500/40 cursor-pointer'
+                              : 'bg-slate-600 shadow-slate-600/20 cursor-not-allowed opacity-60'
+                          }`}>
+                          <Square size={30} />
+                        </motion.button>
+                        {!meetsMinDuration && (
+                          <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs text-amber-400 font-semibold">
+                            {remainingSeconds}s left
+                          </div>
+                        )}
+                      </motion.div>
                     </>
                   )}
 
@@ -247,11 +313,29 @@ export default function CapturePage() {
                         className="w-16 h-16 bg-emerald-500/20 border-2 border-emerald-400 rounded-full flex items-center justify-center text-emerald-400 shadow-lg">
                         <Play size={22} />
                       </motion.button>
-                      <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
-                        onClick={handleStopRecording}
-                        className="w-24 h-24 bg-red-500 rounded-full flex items-center justify-center text-white shadow-2xl shadow-red-500/40">
-                        <Square size={30} />
-                      </motion.button>
+                      <motion.div
+                        animate={shakingStop ? { x: [-6, 6, -6, 6, 0] } : {}}
+                        transition={{ duration: 0.4 }}
+                        className="relative"
+                      >
+                        <motion.button
+                          whileHover={{ scale: meetsMinDuration ? 1.06 : 1.02 }}
+                          whileTap={{ scale: meetsMinDuration ? 0.94 : 0.98 }}
+                          onClick={handleStopRecording}
+                          title={!meetsMinDuration ? `Record at least ${remainingSeconds}s more` : 'Stop and process'}
+                          className={`w-24 h-24 rounded-full flex items-center justify-center text-white shadow-2xl transition-all ${
+                            meetsMinDuration
+                              ? 'bg-red-500 shadow-red-500/40 cursor-pointer'
+                              : 'bg-slate-600 shadow-slate-600/20 cursor-not-allowed opacity-60'
+                          }`}>
+                          <Square size={30} />
+                        </motion.button>
+                        {!meetsMinDuration && (
+                          <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs text-amber-400 font-semibold">
+                            {remainingSeconds}s left
+                          </div>
+                        )}
+                      </motion.div>
                       <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
                         onClick={handleReset}
                         className="w-16 h-16 bg-white/10 border border-white/20 rounded-full flex items-center justify-center text-slate-400 shadow-lg">
@@ -265,6 +349,7 @@ export default function CapturePage() {
                 <div className="mt-8 p-4 bg-white/5 border border-white/10 rounded-xl">
                   <h4 className="font-medium text-emerald-400 mb-2">💡 Tips for best results</h4>
                   <ul className="text-sm text-slate-400 space-y-1">
+                    <li>• <span className="text-amber-400 font-semibold">Minimum 30 seconds</span> required per recording</li>
                     <li>• Speak clearly and at a natural pace</li>
                     <li>• Minimize background noise</li>
                     <li>• State important details explicitly</li>
