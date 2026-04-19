@@ -8,8 +8,8 @@ import {
   Square, 
   RotateCcw,
   Loader2,
-  AlertTriangle,
-  Clock
+  Clock,
+  FileText
 } from 'lucide-react';
 import { Sidebar } from '../components/layout';
 import { Card, Select } from '../components/ui';
