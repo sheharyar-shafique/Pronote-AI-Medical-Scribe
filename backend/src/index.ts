@@ -24,9 +24,32 @@ app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet());
+
+// Build allowed origins list from env (comma-separated support)
+const rawOrigins = process.env.FRONTEND_URL?.trim() || '';
+const allowedOrigins = rawOrigins
+  .split(',')
+  .map((o) => o.trim().replace(/\/$/, '')) // strip trailing slashes
+  .filter(Boolean);
+
 app.use(cors({
-  origin: (process.env.FRONTEND_URL || 'http://localhost:5173').trim(),
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, Postman, server-to-server)
+    if (!origin) return callback(null, true);
+
+    // Normalize incoming origin (strip trailing slash)
+    const normalizedOrigin = origin.replace(/\/$/, '');
+
+    if (allowedOrigins.length === 0 || allowedOrigins.includes(normalizedOrigin)) {
+      return callback(null, true);
+    }
+
+    console.warn(`CORS blocked origin: ${origin} | Allowed: ${allowedOrigins.join(', ')}`);
+    return callback(new Error(`CORS policy: origin ${origin} not allowed`));
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
 // Rate limiting
