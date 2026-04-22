@@ -18,6 +18,7 @@ import {
   SettingsPage,
   AdminPage,
   TeamPage,
+  AnalyticsPage,
   SubscriptionLockedPage,
   TermsPage,
   PrivacyPage,
@@ -239,6 +240,14 @@ function App() {
           element={
             <ProtectedRoute>
               <TeamPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute>
+              <AnalyticsPage />
             </ProtectedRoute>
           }
         />

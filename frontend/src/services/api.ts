@@ -409,6 +409,17 @@ export interface Appointment {
   durationMinutes: number;
 }
 
+export interface AnalyticsData {
+  period: number;
+  total: number;
+  dailyAvg: number;
+  trend: number;
+  notesOverTime: { date: string; count: number }[];
+  notesByTemplate: { name: string; value: number }[];
+  notesByStatus: { name: string; value: number }[];
+  byDayOfWeek: { day: string; count: number }[];
+}
+
 export const dashboardApi = {
   getStats: async () => {
     return apiFetch<DashboardStats>('/dashboard/stats');
@@ -436,6 +447,10 @@ export const dashboardApi = {
     return apiFetch<{ message: string }>(`/dashboard/appointments/${id}`, {
       method: 'DELETE',
     });
+  },
+
+  getAnalytics: async (days: 7 | 30 | 90 = 30) => {
+    return apiFetch<AnalyticsData>(`/dashboard/analytics?days=${days}`);
   },
 };
 

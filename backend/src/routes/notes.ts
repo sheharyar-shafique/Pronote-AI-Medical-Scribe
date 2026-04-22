@@ -391,4 +391,129 @@ router.post('/:id/sign', async (req: AuthenticatedRequest, res: Response, next) 
   }
 });
 
+// GET /api/notes/:id/export — Download note as formatted text/HTML for printing
+router.get('/:id/export', async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const { id } = req.params;
+    const { format: fmt = 'html' } = req.query;
+
+    const { data: note, error } = await supabase
+      .from('clinical_notes')
+      .select('*, note_contents(*)')
+      .eq('id', id)
+      .eq('user_id', req.user!.id)
+      .single();
+
+    if (error || !note) throw new AppError('Note not found', 404);
+
+    const c = note.note_contents || {};
+    const dateStr = new Date(note.date_of_service || note.created_at).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric',
+    });
+
+    const sections = [
+      { label: 'Chief Complaint', value: c.chief_complaint },
+      { label: 'History of Present Illness', value: c.history_of_present_illness },
+      { label: 'Review of Systems', value: c.review_of_systems },
+      { label: 'Physical Examination', value: c.physical_exam },
+      { label: 'Subjective', value: c.subjective },
+      { label: 'Objective', value: c.objective },
+      { label: 'Assessment', value: c.assessment },
+      { label: 'Plan', value: c.plan },
+      { label: 'Medical Decision Making', value: c.medical_decision_making },
+      { label: 'Instructions', value: c.instructions },
+      { label: 'Follow Up', value: c.follow_up },
+    ].filter(s => s.value && s.value.trim());
+
+    // Custom sections
+    const customSecs: { label: string; value: string }[] = [];
+    if (c.custom_sections && typeof c.custom_sections === 'object') {
+      Object.entries(c.custom_sections as Record<string, string>).forEach(([k, v]) => {
+        if (v) customSecs.push({ label: k, value: v as string });
+      });
+    }
+
+    const allSections = [...sections, ...customSecs];
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Clinical Note — ${note.patient_name}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Georgia', serif; background: #fff; color: #1a1a1a; padding: 48px; max-width: 800px; margin: 0 auto; }
+    .header { border-bottom: 3px solid #10b981; padding-bottom: 20px; margin-bottom: 28px; }
+    .logo { font-size: 13px; font-weight: 800; color: #10b981; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+    .patient-name { font-size: 26px; font-weight: 700; color: #111; margin-bottom: 6px; }
+    .meta { display: flex; gap: 24px; flex-wrap: wrap; }
+    .meta-item { font-size: 12px; color: #666; }
+    .meta-item strong { color: #333; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .badge-completed { background: #d1fae5; color: #065f46; }
+    .badge-draft { background: #fef3c7; color: #92400e; }
+    .badge-signed { background: #ede9fe; color: #4c1d95; }
+    .section { margin-bottom: 24px; }
+    .section-title { font-size: 11px; font-weight: 800; color: #10b981; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #d1fae5; }
+    .section-body { font-size: 14px; line-height: 1.8; color: #333; white-space: pre-wrap; }
+    .transcription { background: #f8f8f8; border-left: 4px solid #e5e7eb; padding: 16px; border-radius: 0 8px 8px 0; font-size: 13px; font-style: italic; color: #555; }
+    .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; font-size: 11px; color: #999; }
+    @media print {
+      body { padding: 24px; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print" style="background:#10b981;color:#fff;padding:12px 20px;border-radius:8px;margin-bottom:24px;font-size:13px;font-family:sans-serif;display:flex;justify-content:space-between;align-items:center;">
+    <span>📄 Pronote AI — EHR Export</span>
+    <button onclick="window.print()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:700;">Print / Save PDF</button>
+  </div>
+
+  <div class="header">
+    <div class="logo">🏥 Pronote AI Medical Scribe</div>
+    <div class="patient-name">${note.patient_name || 'Unknown Patient'}</div>
+    <div class="meta">
+      ${note.patient_id ? `<div class="meta-item"><strong>Patient ID:</strong> ${note.patient_id}</div>` : ''}
+      <div class="meta-item"><strong>Date of Service:</strong> ${dateStr}</div>
+      <div class="meta-item"><strong>Template:</strong> ${(note.template || 'SOAP').toUpperCase()}</div>
+      <div class="meta-item"><strong>Status:</strong> <span class="badge badge-${note.status || 'draft'}">${note.status || 'draft'}</span></div>
+    </div>
+  </div>
+
+  ${allSections.map(s => `
+  <div class="section">
+    <div class="section-title">${s.label}</div>
+    <div class="section-body">${s.value.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+  </div>`).join('')}
+
+  ${note.transcription ? `
+  <div class="section">
+    <div class="section-title">Original Transcription</div>
+    <div class="transcription">${note.transcription.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+  </div>` : ''}
+
+  <div class="footer">
+    <span>Generated by Pronote AI Medical Scribe</span>
+    <span>${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+  </div>
+</body>
+</html>`;
+
+    // Log HIPAA audit
+    await supabase.from('activity_logs').insert({
+      user_id: req.user!.id,
+      action: 'note_exported',
+      resource_type: 'clinical_note',
+      resource_id: id,
+    });
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Disposition', `inline; filename="note-${note.patient_name?.replace(/\s+/g, '-')}-${note.date_of_service}.html"`);
+    res.send(html);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   Users,
   Users2,
+  BarChart2,
   Sparkles
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -26,6 +27,7 @@ const menuItems = [
   { name: 'Upload', icon: Upload, href: '/upload', color: 'from-blue-400 to-indigo-500' },
   { name: 'Notes', icon: FileText, href: '/notes', color: 'from-amber-400 to-orange-500' },
   { name: 'Templates', icon: LayoutTemplate, href: '/templates', color: 'from-cyan-400 to-sky-500' },
+  { name: 'Analytics', icon: BarChart2, href: '/analytics', color: 'from-violet-400 to-purple-500' },
   { name: 'Settings', icon: Settings, href: '/settings', color: 'from-slate-400 to-gray-500' },
 ];
 

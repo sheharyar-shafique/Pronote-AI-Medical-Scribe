@@ -246,4 +246,97 @@ router.delete('/appointments/:id', async (req: AuthenticatedRequest, res: Respon
   }
 });
 
+// ── GET /api/dashboard/analytics ─────────────────────────────────────────────
+// Advanced analytics: notes over time, by template, by status
+router.get('/analytics', async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const userId = req.user!.id;
+    const now = new Date();
+    const days = parseInt((req.query.days as string) || '30');
+    const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+
+    // ── All notes in window ───────────────────────────────────────────────────
+    const { data: notes, error } = await supabase
+      .from('clinical_notes')
+      .select('id, created_at, template, status')
+      .eq('user_id', userId)
+      .gte('created_at', startDate.toISOString())
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    // ── Notes per day ─────────────────────────────────────────────────────────
+    const byDay: Record<string, number> = {};
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().split('T')[0];
+      byDay[key] = 0;
+    }
+    (notes || []).forEach(n => {
+      const key = n.created_at.split('T')[0];
+      if (byDay[key] !== undefined) byDay[key]++;
+    });
+    const notesOverTime = Object.entries(byDay).map(([date, count]) => ({ date, count }));
+
+    // ── By template ───────────────────────────────────────────────────────────
+    const templateMap: Record<string, number> = {};
+    (notes || []).forEach(n => {
+      const t = n.template || 'unknown';
+      templateMap[t] = (templateMap[t] || 0) + 1;
+    });
+    const notesByTemplate = Object.entries(templateMap)
+      .map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value }))
+      .sort((a, b) => b.value - a.value);
+
+    // ── By status ─────────────────────────────────────────────────────────────
+    const statusMap: Record<string, number> = {};
+    (notes || []).forEach(n => {
+      const s = n.status || 'draft';
+      statusMap[s] = (statusMap[s] || 0) + 1;
+    });
+    const notesByStatus = Object.entries(statusMap).map(([name, value]) => ({ name, value }));
+
+    // ── Productivity: daily avg this period vs previous period ────────────────
+    const total = notes?.length || 0;
+    const dailyAvg = parseFloat((total / days).toFixed(1));
+
+    // Previous period
+    const prevStart = new Date(startDate.getTime() - days * 24 * 60 * 60 * 1000);
+    const { count: prevTotal } = await supabase
+      .from('clinical_notes')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', prevStart.toISOString())
+      .lt('created_at', startDate.toISOString());
+
+    const prevDailyAvg = parseFloat(((prevTotal || 0) / days).toFixed(1));
+    const trend = prevDailyAvg === 0
+      ? (total > 0 ? 100 : 0)
+      : parseFloat((((dailyAvg - prevDailyAvg) / prevDailyAvg) * 100).toFixed(1));
+
+    // ── Busiest day of week ───────────────────────────────────────────────────
+    const dayOfWeek = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const dowMap: Record<string, number> = { Sun:0, Mon:0, Tue:0, Wed:0, Thu:0, Fri:0, Sat:0 };
+    (notes || []).forEach(n => {
+      const dow = dayOfWeek[new Date(n.created_at).getDay()];
+      dowMap[dow]++;
+    });
+    const byDayOfWeek = Object.entries(dowMap).map(([day, count]) => ({ day, count }));
+
+    res.json({
+      period: days,
+      total,
+      dailyAvg,
+      trend,
+      notesOverTime,
+      notesByTemplate,
+      notesByStatus,
+      byDayOfWeek,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
