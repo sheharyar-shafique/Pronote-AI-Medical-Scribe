@@ -135,6 +135,8 @@ export default function TemplatesPage() {
       description: newTemplate.description || 'Custom template',
       sections: newTemplate.sections.split(',').map(s => s.trim()).filter(Boolean),
       specialty: newTemplate.specialty || 'Custom',
+      isCustom: true,   // ← enables Edit & Delete buttons
+      isDefault: false,
     };
 
     setTemplates(prev => [...prev, customTemplate]);
@@ -148,9 +150,11 @@ export default function TemplatesPage() {
       ...template,
       id: `${template.id}-copy-${Date.now()}` as NoteTemplate,
       name: `${template.name} (Copy)`,
+      isCustom: true,   // ← copies are editable
+      isDefault: false,
     };
     setTemplates(prev => [...prev, duplicated]);
-    toast.success('Template duplicated');
+    toast.success('Template duplicated — you can now edit it!');
   };
 
   const handleUseTemplate = (template: Template) => {
