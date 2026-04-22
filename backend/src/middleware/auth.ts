@@ -18,13 +18,17 @@ export async function authenticate(
 ): Promise<void> {
   try {
     const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Also accept token as query param for direct URL access (e.g. export pages)
+    const queryToken = req.query.token as string | undefined;
+
+    if (!authHeader?.startsWith('Bearer ') && !queryToken) {
       res.status(401).json({ error: 'No token provided' });
       return;
     }
 
-    const token = authHeader.split(' ')[1];
+    const token = authHeader?.startsWith('Bearer ')
+      ? authHeader.split(' ')[1]
+      : queryToken!;
     const jwtSecret = process.env.JWT_SECRET;
 
     if (!jwtSecret) {

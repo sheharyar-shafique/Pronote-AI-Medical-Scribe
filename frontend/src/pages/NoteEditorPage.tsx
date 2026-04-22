@@ -17,6 +17,7 @@ import { templates } from '../data';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import type { ClinicalNote, NoteContent } from '../types';
+import { getAuthToken } from '../services/api';
 
 export default function NoteEditorPage() {
   const { id } = useParams();
@@ -106,8 +107,13 @@ export default function NoteEditorPage() {
   };
 
   const handleExport = () => {
-    // Simulate export
-    toast.success('Note exported successfully');
+    if (!note?.id) return;
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+    const token = getAuthToken();
+    // Open export page in new tab — user can Print → Save as PDF
+    const url = `${apiBase}/notes/${note.id}/export?token=${token}`;
+    window.open(url, '_blank');
+    toast.success('Export opened — use Print (Ctrl+P) to save as PDF');
   };
 
   const getSections = () => {
@@ -199,9 +205,13 @@ export default function NoteEditorPage() {
                 <Copy size={16} className="mr-1" />
                 Copy
               </Button>
-              <Button variant="outline" size="sm" onClick={handleExport}>
+              <Button
+                size="sm"
+                onClick={handleExport}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white border-0"
+              >
                 <Download size={16} className="mr-1" />
-                Export
+                Export EHR
               </Button>
               <Button 
                 size="sm" 
