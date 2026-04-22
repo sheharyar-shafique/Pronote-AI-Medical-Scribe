@@ -264,43 +264,18 @@ export default function DashboardPage() {
                 )}
 
                 {/* Trial banner if on trial */}
-                {user?.subscriptionStatus === 'trial' && (() => {
-                  const daysLeft = user.trialEndsAt
-                    ? Math.max(0, Math.ceil((new Date(user.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-                    : 7;
-                  const isUrgent = daysLeft <= 2;
-                  return (
-                    <div className={`m-4 p-4 rounded-xl border ${
-                      isUrgent
-                        ? 'bg-gradient-to-r from-red-500/10 to-orange-500/5 border-red-500/25'
-                        : 'bg-gradient-to-r from-emerald-500/10 to-teal-500/5 border-emerald-500/20'
-                    }`}>
-                      <p className={`text-xs font-bold mb-1 ${
-                        isUrgent ? 'text-red-400' : 'text-emerald-400'
-                      }`}>
-                        {isUrgent ? '🚨 Trial Expiring!' : '🎉 Trial Active'}
-                      </p>
-                      <p className="text-xs text-slate-400 mb-3">
-                        {daysLeft === 0
-                          ? 'Your trial expires today. Upgrade now to keep access.'
-                          : daysLeft === 1
-                            ? '⏰ Last day! Your trial expires tomorrow.'
-                            : `⏳ ${daysLeft} days left on your trial. Upgrade to keep access.`
-                        }
-                      </p>
-                      <Link to="/settings">
-                        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                          className={`w-full py-2 text-white text-xs font-bold rounded-lg shadow-lg ${
-                            isUrgent
-                              ? 'bg-gradient-to-r from-red-500 to-orange-500 shadow-red-500/25'
-                              : 'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-500/25'
-                          }`}>
-                          Choose a Plan →
-                        </motion.button>
-                      </Link>
-                    </div>
-                  );
-                })()}
+                {user?.subscriptionStatus === 'trial' && (
+                  <div className="m-4 p-4 rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/5 border border-emerald-500/20">
+                    <p className="text-xs font-bold text-emerald-400 mb-1">🎉 Trial Active</p>
+                    <p className="text-xs text-slate-400 mb-3">Your free trial ends soon. Upgrade to keep your access.</p>
+                    <Link to="/settings">
+                      <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                        className="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-emerald-500/25">
+                        Choose a Plan →
+                      </motion.button>
+                    </Link>
+                  </div>
+                )}
               </div>
             </motion.div>
 
