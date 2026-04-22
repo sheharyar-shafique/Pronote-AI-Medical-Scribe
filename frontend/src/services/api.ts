@@ -245,6 +245,53 @@ export const templatesApi = {
   },
 };
 
+// Teams API
+export const teamsApi = {
+  get: async () => {
+    return apiFetch<Team | null>('/teams');
+  },
+
+  create: async (name: string) => {
+    return apiFetch<Team>('/teams', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+  },
+
+  rename: async (id: string, name: string) => {
+    return apiFetch<{ id: string; name: string }>(`/teams/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name }),
+    });
+  },
+
+  invite: async (teamId: string, email: string) => {
+    return apiFetch<TeamMember>(`/teams/${teamId}/invite`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  accept: async (token: string) => {
+    return apiFetch<{ message: string; teamId: string }>('/teams/accept', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  },
+
+  removeMember: async (teamId: string, memberId: string) => {
+    return apiFetch<{ message: string }>(`/teams/${teamId}/members/${memberId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  disband: async (teamId: string) => {
+    return apiFetch<{ message: string }>(`/teams/${teamId}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 // Audio API
 export const audioApi = {
   upload: async (file: File) => {
@@ -567,6 +614,28 @@ export interface CreateTemplateData {
   templateType: string;
   sections: string[];
   specialty?: string;
+}
+
+export interface TeamMember {
+  id: string;
+  userId: string | null;
+  role: 'owner' | 'member';
+  status: 'active' | 'pending';
+  invitedEmail: string;
+  joinedAt: string | null;
+  name: string | null;
+  email: string;
+  specialty: string | null;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  ownerId: string;
+  memberLimit: number;
+  plan: string;
+  isOwner: boolean;
+  members: TeamMember[];
 }
 
 export interface AudioFile {

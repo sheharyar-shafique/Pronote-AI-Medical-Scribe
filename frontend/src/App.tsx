@@ -17,6 +17,7 @@ import {
   TemplatesPage,
   SettingsPage,
   AdminPage,
+  TeamPage,
   SubscriptionLockedPage,
   TermsPage,
   PrivacyPage,
@@ -230,6 +231,14 @@ function App() {
           element={
             <ProtectedRoute>
               <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/team"
+          element={
+            <ProtectedRoute>
+              <TeamPage />
             </ProtectedRoute>
           }
         />

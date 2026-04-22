@@ -13,6 +13,7 @@ import {
   X,
   ChevronLeft,
   Users,
+  Users2,
   Sparkles
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -62,7 +63,9 @@ export default function Sidebar({ children }: SidebarProps) {
 
   const allMenuItems = user?.role === 'admin'
     ? [...menuItems, ...adminItems]
-    : menuItems;
+    : user?.subscriptionPlan?.startsWith('group')
+      ? [...menuItems, { name: 'Team', icon: Users2, href: '/team', color: 'from-violet-400 to-purple-500' }]
+      : menuItems;
 
   const SidebarContent = ({ collapsed }: { collapsed: boolean }) => (
     <div className="flex flex-col h-full">
