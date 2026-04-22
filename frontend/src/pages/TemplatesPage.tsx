@@ -10,8 +10,10 @@ import {
   Search,
   Copy,
   Eye,
-  Sparkles
+  Pencil,
+  Trash2
 } from 'lucide-react';
+import { templatesApi } from '../services/api';
 import { Sidebar } from '../components/layout';
 import { Modal, Input } from '../components/ui';
 import { useSettingsStore } from '../store';
@@ -36,6 +38,71 @@ export default function TemplatesPage() {
     sections: '',
     specialty: '',
   });
+
+  // ── Edit modal state ────────────────────────────────────────────────────────
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    description: '',
+    sections: '',
+    specialty: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleOpenEdit = (template: Template) => {
+    setEditingTemplate(template);
+    setEditForm({
+      name: template.name,
+      description: template.description,
+      sections: template.sections.join(', '),
+      specialty: template.specialty,
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingTemplate) return;
+    if (!editForm.name.trim()) {
+      toast.error('Template name is required');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const dbId = (editingTemplate as Template & { dbId?: string }).dbId;
+      const idToUse = dbId || editingTemplate.id;
+      const updated = await templatesApi.update(idToUse, {
+        name: editForm.name,
+        description: editForm.description,
+        templateType: editingTemplate.id,
+        sections: editForm.sections.split(',').map(s => s.trim()).filter(Boolean),
+        specialty: editForm.specialty,
+      });
+      setTemplates(prev =>
+        prev.map(t => t.id === editingTemplate.id ? { ...t, ...updated } : t)
+      );
+      setIsEditModalOpen(false);
+      setEditingTemplate(null);
+      toast.success('Template updated!');
+    } catch {
+      toast.error('Failed to save — check your connection and try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (template: Template) => {
+    if (!confirm(`Delete "${template.name}"? This cannot be undone.`)) return;
+    try {
+      const dbId = (template as Template & { dbId?: string }).dbId;
+      const idToUse = dbId || template.id;
+      await templatesApi.delete(idToUse);
+      setTemplates(prev => prev.filter(t => t.id !== template.id));
+      toast.success('Template deleted');
+    } catch {
+      toast.error('Failed to delete template');
+    }
+  };
 
   const filteredTemplates = templates.filter(t =>
     t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -183,6 +250,8 @@ export default function TemplatesPage() {
                     onPreview={handlePreview}
                     onDuplicate={handleDuplicateTemplate}
                     onUse={handleUseTemplate}
+                    onEdit={handleOpenEdit}
+                    onDelete={handleDeleteTemplate}
                   />
                 ))}
               </div>
@@ -206,6 +275,8 @@ export default function TemplatesPage() {
                   onPreview={handlePreview}
                   onDuplicate={handleDuplicateTemplate}
                   onUse={handleUseTemplate}
+                  onEdit={handleOpenEdit}
+                  onDelete={handleDeleteTemplate}
                 />
               ))}
             </div>
@@ -286,6 +357,63 @@ export default function TemplatesPage() {
               </div>
             )}
           </Modal>
+
+          {/* ── Edit Template Modal ─────────────────────────────────────── */}
+          <Modal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setEditingTemplate(null); }} title={`Edit: ${editingTemplate?.name || ''}`}>
+            <div className="space-y-4">
+              {/* helper badge */}
+              <div className="flex items-center gap-2 px-3 py-2 bg-violet-500/10 border border-violet-500/25 rounded-xl">
+                <Pencil size={13} className="text-violet-400 shrink-0" />
+                <p className="text-xs text-violet-300">Only custom templates can be edited. Default templates are read-only.</p>
+              </div>
+
+              <Input
+                label="Template Name"
+                value={editForm.name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g., Neurology Assessment"
+              />
+              <Input
+                label="Description"
+                value={editForm.description}
+                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Brief description of the template"
+              />
+              <Input
+                label="Sections (comma-separated)"
+                value={editForm.sections}
+                onChange={(e) => setEditForm(prev => ({ ...prev, sections: e.target.value }))}
+                placeholder="e.g., Chief Complaint, History, Exam, Assessment, Plan"
+              />
+              <Input
+                label="Specialty"
+                value={editForm.specialty}
+                onChange={(e) => setEditForm(prev => ({ ...prev, specialty: e.target.value }))}
+                placeholder="e.g., Neurology"
+              />
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => { setIsEditModalOpen(false); setEditingTemplate(null); }}
+                  className="flex-1 py-2.5 border border-white/20 text-slate-300 rounded-xl hover:bg-white/10 font-semibold text-sm transition-all"
+                >
+                  Cancel
+                </button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                  onClick={handleSaveEdit}
+                  disabled={isSaving}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-violet-500/25 hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSaving ? (
+                    <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving…</>
+                  ) : (
+                    <><Pencil size={14} />Save Changes</>
+                  )}
+                </motion.button>
+              </div>
+            </div>
+          </Modal>
         </div>
       </div>
     </Sidebar>
@@ -302,9 +430,11 @@ interface TemplateCardProps {
   onPreview: (template: Template) => void;
   onDuplicate: (template: Template) => void;
   onUse: (template: Template) => void;
+  onEdit: (template: Template) => void;
+  onDelete: (template: Template) => void;
 }
 
-function TemplateCard({ template, index, isSelected, isFavorite, onToggleFavorite, onPreview, onDuplicate, onUse }: TemplateCardProps) {
+function TemplateCard({ template, index, isSelected, isFavorite, onToggleFavorite, onPreview, onDuplicate, onUse, onEdit, onDelete }: TemplateCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -389,6 +519,25 @@ function TemplateCard({ template, index, isSelected, isFavorite, onToggleFavorit
           >
             <Copy size={16} />
           </button>
+          {/* Edit & Delete — custom templates only */}
+          {template.isCustom && (
+            <>
+              <button
+                onClick={() => onEdit(template)}
+                className="p-2 hover:bg-white/10 rounded-xl transition-colors text-slate-500 hover:text-violet-400"
+                title="Edit"
+              >
+                <Pencil size={16} />
+              </button>
+              <button
+                onClick={() => onDelete(template)}
+                className="p-2 hover:bg-white/10 rounded-xl transition-colors text-slate-500 hover:text-red-400"
+                title="Delete"
+              >
+                <Trash2 size={16} />
+              </button>
+            </>
+          )}
         </div>
 
         {/* Selected glow overlay */}
