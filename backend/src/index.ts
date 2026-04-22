@@ -14,6 +14,7 @@ import adminRoutes from './routes/admin.js';
 import webhookRoutes from './routes/webhooks.js';
 import dashboardRoutes from './routes/dashboard.js';
 import teamsRoutes from './routes/teams.js';
+import cronRoutes from './routes/cron.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { initializePayPalPlans } from './lib/paypalInit.js';
 
@@ -83,6 +84,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/teams', teamsRoutes);
+app.use('/api/cron', cronRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
