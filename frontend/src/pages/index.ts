@@ -13,6 +13,7 @@ export { default as SettingsPage } from './SettingsPage';
 export { default as AdminPage } from './AdminPage';
 export { default as TeamPage } from './TeamPage';
 export { default as AnalyticsPage } from './AnalyticsPage';
+export { default as HipaaBaaPage } from './HipaaBaaPage';
 export { default as SubscriptionLockedPage } from './SubscriptionLockedPage';
 export { default as TermsPage } from './TermsPage';
 export { default as PrivacyPage } from './PrivacyPage';

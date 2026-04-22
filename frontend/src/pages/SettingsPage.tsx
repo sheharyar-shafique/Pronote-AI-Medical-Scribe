@@ -12,7 +12,9 @@ import {
   EyeOff,
   Trash2,
   Lock,
-  ExternalLink
+  ExternalLink,
+  MessageSquare,
+  Send
 } from 'lucide-react';
 import { Sidebar } from '../components/layout';
 import { Card, Button, Input, Toggle, Select, Modal } from '../components/ui';
@@ -20,7 +22,7 @@ import { useAuthStore, useSettingsStore } from '../store';
 import { templates, specialties, pricingPlans } from '../data';
 import { subscriptionsApi, authApi, usersApi } from '../services/api';
 import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -50,6 +52,9 @@ export default function SettingsPage() {
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal'>('paypal');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [isSendingTicket, setIsSendingTicket] = useState(false);
+  const [supportForm, setSupportForm] = useState({ subject: '', message: '', category: 'general' });
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   
   const [passwordForm, setPasswordForm] = useState({
@@ -136,6 +141,29 @@ export default function SettingsPage() {
       toast.error(err.message || 'Failed to delete account');
     } finally {
       setIsDeletingAccount(false);
+    }
+  };
+
+  const handleSendSupportTicket = async () => {
+    if (!supportForm.subject.trim()) { toast.error('Subject is required'); return; }
+    if (!supportForm.message.trim() || supportForm.message.trim().length < 10) { toast.error('Message must be at least 10 characters'); return; }
+    setIsSendingTicket(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/support`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(supportForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to submit');
+      toast.success(`Ticket ${data.ticketId} submitted! Check your email.`);
+      setShowSupportModal(false);
+      setSupportForm({ subject: '', message: '', category: 'general' });
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to submit ticket');
+    } finally {
+      setIsSendingTicket(false);
     }
   };
 
@@ -371,6 +399,32 @@ export default function SettingsPage() {
                       <ExternalLink size={16} className="text-slate-500" />
                     </div>
                   </div>
+                  {/* Support */}
+                  <div className="p-4 bg-white/[0.04] border border-white/[0.08] rounded-xl cursor-pointer hover:bg-white/[0.07] transition-colors" onClick={() => setShowSupportModal(true)}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-bold text-white text-sm">Contact Support</h4>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {user?.subscriptionPlan?.startsWith('group') ? '🔴 Priority support — response within 4 hours' : 'Standard support — response within 24 hours'}
+                        </p>
+                      </div>
+                      <MessageSquare size={16} className="text-slate-500" />
+                    </div>
+                  </div>
+                  {/* HIPAA BAA */}
+                  <Link to="/hipaa-baa">
+                    <div className="p-4 bg-white/[0.04] border border-white/[0.08] rounded-xl cursor-pointer hover:bg-white/[0.07] transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-bold text-white text-sm">HIPAA Business Associate Agreement</h4>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            {user?.subscriptionPlan === 'group_annual' ? '✅ Included in your plan — view & sign' : 'Available on Group Annual plan'}
+                          </p>
+                        </div>
+                        <Shield size={16} className="text-slate-500" />
+                      </div>
+                    </div>
+                  </Link>
                   <div className="pt-4 border-t border-white/[0.08]">
                     <h3 className="font-bold text-red-400 mb-3 text-sm">Danger Zone</h3>
                     <div className="p-4 border border-red-500/20 rounded-xl bg-red-500/5">
@@ -684,6 +738,60 @@ export default function SettingsPage() {
             <Button onClick={() => setShowPrivacyModal(false)}>
               Close
             </Button>
+          </div>
+        </Modal>
+
+        {/* Support Ticket Modal */}
+        <Modal
+          isOpen={showSupportModal}
+          onClose={() => setShowSupportModal(false)}
+          title="Contact Support"
+        >
+          <div className="space-y-4">
+            {user?.subscriptionPlan?.startsWith('group') && (
+              <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+                <span className="text-red-400 text-xs font-bold">🔴 Priority Support</span>
+                <span className="text-slate-400 text-xs">— We'll respond within 4 hours</span>
+              </div>
+            )}
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Category</label>
+              <select
+                value={supportForm.category}
+                onChange={e => setSupportForm(f => ({ ...f, category: e.target.value }))}
+                className="w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-emerald-500/50">
+                <option value="general">General Question</option>
+                <option value="billing">Billing & Subscription</option>
+                <option value="technical">Technical Issue</option>
+                <option value="feature">Feature Request</option>
+                <option value="hipaa">HIPAA / Compliance</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Subject *</label>
+              <input
+                value={supportForm.subject}
+                onChange={e => setSupportForm(f => ({ ...f, subject: e.target.value }))}
+                placeholder="Brief description of your issue"
+                className="w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-4 py-2.5 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Message *</label>
+              <textarea
+                value={supportForm.message}
+                onChange={e => setSupportForm(f => ({ ...f, message: e.target.value }))}
+                placeholder="Describe your issue in detail..."
+                rows={5}
+                className="w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-4 py-2.5 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 resize-none"
+              />
+            </div>
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="outline" onClick={() => setShowSupportModal(false)}>Cancel</Button>
+              <Button onClick={handleSendSupportTicket} isLoading={isSendingTicket}>
+                <Send size={14} className="mr-1.5" /> Send Ticket
+              </Button>
+            </div>
           </div>
         </Modal>
       </div>

@@ -211,7 +211,102 @@ export async function sendTrialReminderEmail(
   await transporter.sendMail(mailOptions);
 }
 
+// ── Support ticket emails ──────────────────────────────────────────────────────
 
+interface SupportEmailOptions {
+  ticketId: string;
+  userName: string;
+  userEmail: string;
+  subject: string;
+  message: string;
+  category: string;
+  plan: string;
+  isPriority: boolean;
+}
+
+export async function sendSupportEmail(opts: SupportEmailOptions): Promise<void> {
+  const transporter = createTransporter();
+  const adminEmail  = process.env.SMTP_USER!;
+  const priorityBadge = opts.isPriority
+    ? `<span style="background:#ef4444;color:#fff;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">🔴 Priority</span>`
+    : `<span style="background:#3b82f6;color:#fff;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Standard</span>`;
+
+  // ── Admin notification ──────────────────────────────────────────────────────
+  await transporter.sendMail({
+    from: `"Pronote Support" <${adminEmail}>`,
+    to: adminEmail,
+    subject: `${opts.isPriority ? '🔴 [PRIORITY] ' : ''}New Support Ticket ${opts.ticketId} — ${opts.subject}`,
+    html: `
+      <!DOCTYPE html><html><head><meta charset="utf-8"></head>
+      <body style="margin:0;padding:32px;background:#f8fafc;font-family:'Segoe UI',sans-serif;">
+        <div style="max-width:540px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
+          <div style="background:${opts.isPriority ? 'linear-gradient(135deg,#ef4444,#f97316)' : 'linear-gradient(135deg,#3b82f6,#6366f1)'};padding:24px;">
+            <h2 style="margin:0;color:#fff;font-size:18px;">New Support Ticket</h2>
+            <p style="margin:4px 0 0;color:rgba(255,255,255,0.8);font-size:13px;">${opts.ticketId} · ${priorityBadge}</p>
+          </div>
+          <div style="padding:28px;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+              <tr><td style="padding:6px 0;color:#64748b;width:120px;">From</td><td style="color:#111;font-weight:600;">${opts.userName} (${opts.userEmail})</td></tr>
+              <tr><td style="padding:6px 0;color:#64748b;">Plan</td><td style="color:#111;">${opts.plan}</td></tr>
+              <tr><td style="padding:6px 0;color:#64748b;">Category</td><td style="color:#111;text-transform:capitalize;">${opts.category}</td></tr>
+              <tr><td style="padding:6px 0;color:#64748b;">Subject</td><td style="color:#111;font-weight:600;">${opts.subject}</td></tr>
+            </table>
+            <div style="margin-top:20px;background:#f8fafc;border-left:4px solid ${opts.isPriority ? '#ef4444' : '#3b82f6'};padding:16px;border-radius:0 8px 8px 0;">
+              <p style="margin:0;color:#334155;font-size:14px;line-height:1.7;white-space:pre-wrap;">${opts.message}</p>
+            </div>
+            <p style="margin:20px 0 0;font-size:12px;color:#94a3b8;">Reply directly to this email to respond to the user.</p>
+          </div>
+        </div>
+      </body></html>
+    `,
+    replyTo: opts.userEmail,
+  });
+
+  // ── User auto-reply ─────────────────────────────────────────────────────────
+  await transporter.sendMail({
+    from: `"Pronote Support" <${adminEmail}>`,
+    to: opts.userEmail,
+    subject: `[${opts.ticketId}] We received your message — ${opts.subject}`,
+    html: `
+      <!DOCTYPE html><html><head><meta charset="utf-8"></head>
+      <body style="margin:0;padding:32px;background:#0a0a0a;font-family:'Segoe UI',sans-serif;">
+        <div style="max-width:520px;margin:0 auto;background:#111;border-radius:20px;overflow:hidden;border:1px solid #1f1f1f;">
+          <div style="background:linear-gradient(135deg,#10b981,#059669);padding:32px;text-align:center;">
+            <h1 style="margin:0 0 4px;color:#fff;font-size:20px;font-weight:800;">Pronote AI</h1>
+            <p style="margin:0;color:rgba(255,255,255,0.8);font-size:13px;">Support Team</p>
+          </div>
+          <div style="padding:32px;">
+            <h2 style="margin:0 0 8px;color:#fff;font-size:18px;">Hi ${opts.userName}, we've got your message!</h2>
+            <p style="margin:0 0 24px;color:#888;font-size:14px;line-height:1.7;">
+              Your support ticket has been received. Here's what to expect:
+            </p>
+            <div style="background:#0a0a0a;border-radius:12px;padding:20px;margin-bottom:24px;">
+              <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+                <span style="color:#666;font-size:12px;">Ticket ID</span>
+                <span style="color:#10b981;font-weight:700;font-size:12px;">${opts.ticketId}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+                <span style="color:#666;font-size:12px;">Subject</span>
+                <span style="color:#fff;font-size:12px;">${opts.subject}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:#666;font-size:12px;">Expected Response</span>
+                <span style="color:${opts.isPriority ? '#ef4444' : '#3b82f6'};font-weight:700;font-size:12px;">${opts.isPriority ? '< 4 hours 🔴' : '< 24 hours'}</span>
+              </div>
+            </div>
+            ${opts.isPriority ? `<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:14px;margin-bottom:20px;text-align:center;">
+              <p style="margin:0;color:#ef4444;font-size:13px;font-weight:700;">🔴 Priority Support Active</p>
+              <p style="margin:4px 0 0;color:#888;font-size:12px;">As a Group plan member, your ticket is prioritized.</p>
+            </div>` : ''}
+            <p style="margin:0;color:#555;font-size:12px;text-align:center;">
+              We'll reply to <strong style="color:#888;">${opts.userEmail}</strong>. Reply to this email if you have anything to add.
+            </p>
+          </div>
+        </div>
+      </body></html>
+    `,
+  });
+}
 export async function sendTeamInviteEmail(
   toEmail: string,
   teamName: string,

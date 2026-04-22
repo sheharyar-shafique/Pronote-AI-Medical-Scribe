@@ -19,6 +19,7 @@ import {
   AdminPage,
   TeamPage,
   AnalyticsPage,
+  HipaaBaaPage,
   SubscriptionLockedPage,
   TermsPage,
   PrivacyPage,
@@ -248,6 +249,14 @@ function App() {
           element={
             <ProtectedRoute>
               <AnalyticsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hipaa-baa"
+          element={
+            <ProtectedRoute>
+              <HipaaBaaPage />
             </ProtectedRoute>
           }
         />
