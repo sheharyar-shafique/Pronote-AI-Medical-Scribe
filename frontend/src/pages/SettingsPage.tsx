@@ -250,7 +250,12 @@ export default function SettingsPage() {
               </div>
               <p className="text-xs text-slate-400 mb-3">
                 {user?.subscriptionStatus === 'trial'
-                  ? 'Your trial ends in 7 days'
+                  ? (() => {
+                      const d = user.trialEndsAt
+                        ? Math.max(0, Math.ceil((new Date(user.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+                        : 7;
+                      return d === 0 ? '⚠️ Trial expires today!' : d === 1 ? '⏰ 1 day left on trial' : `⏳ ${d} days left on trial`;
+                    })()
                   : `${user?.subscriptionPlan} plan`
                 }
               </p>
