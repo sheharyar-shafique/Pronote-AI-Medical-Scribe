@@ -26,7 +26,7 @@ import { useNavigate, Link } from 'react-router-dom';
 
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const { user, updateUser, logout } = useAuthStore();
+  const { user, updateUser, logout, setSubscriptionStatus, checkAuth } = useAuthStore();
   const { 
     selectedTemplate, 
     setTemplate, 
@@ -174,9 +174,11 @@ export default function SettingsPage() {
     if (paypalSubId) {
       setIsVerifyingPayPal(true);
       subscriptionsApi.verifyPayPalSubscription(paypalSubId)
-        .then(() => {
+        .then(async () => {
           toast.success('PayPal subscription activated! Welcome aboard.');
           window.history.replaceState({}, '', '/settings');
+          // ✅ Re-fetch user from DB so status changes from trial → active
+          await checkAuth();
         })
         .catch(() => toast.error('Could not verify PayPal subscription.'))
         .finally(() => setIsVerifyingPayPal(false));
@@ -184,6 +186,8 @@ export default function SettingsPage() {
     if (params.get('success') === 'true') {
       toast.success('Subscription activated successfully!');
       window.history.replaceState({}, '', '/settings');
+      // Also refresh user on Stripe success
+      checkAuth();
     }
     if (params.get('canceled') === 'true') {
       toast('Checkout cancelled.');
@@ -487,9 +491,8 @@ export default function SettingsPage() {
             </div>
           )}
           {paymentMethod === 'stripe' && (
-            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2 text-sm text-amber-700">
-              <AlertCircle size={15} className="flex-shrink-0" />
-              Card payments require Stripe configuration. <strong className="ml-1">Switch to PayPal for instant checkout.</strong>
+            <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-sm text-emerald-700">
+              🔒 You'll be redirected to Stripe's secure checkout to complete payment.
             </div>
           )}
 
