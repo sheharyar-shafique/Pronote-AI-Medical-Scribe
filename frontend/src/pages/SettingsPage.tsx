@@ -496,34 +496,34 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Plan cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Plan cards — all 4 on one row */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {pricingPlans.map((plan) => (
               <div key={plan.id}
-                className={`p-5 border-2 rounded-xl flex flex-col h-full ${
+                className={`p-4 border-2 rounded-xl flex flex-col h-full relative ${
                   plan.highlighted ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white'
                 }`}
               >
                 {plan.highlighted && (
-                  <span className="inline-block text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full mb-2 w-fit">
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full whitespace-nowrap">
                     MOST POPULAR
                   </span>
                 )}
                 <div>
-                  <h4 className="font-semibold text-gray-900 text-lg">{plan.name}</h4>
-                  <p className="text-3xl font-bold text-gray-900 mt-1">
+                  <h4 className="font-bold text-gray-900 text-sm leading-tight">{plan.name}</h4>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">
                     {plan.price ? `$${plan.price}` : 'Custom'}
-                    {plan.price && <span className="text-sm font-normal text-gray-500">/{plan.period}</span>}
+                    {plan.price && <span className="text-xs font-normal text-gray-500">/{plan.period}</span>}
                   </p>
                   {plan.pricePerMonth && plan.period === 'year' && (
-                    <p className="text-sm text-emerald-600 font-medium">${plan.pricePerMonth.toFixed(2)}/mo</p>
+                    <p className="text-xs text-emerald-600 font-semibold">${plan.pricePerMonth.toFixed(2)}/mo</p>
                   )}
-                  <p className="text-sm text-gray-500 mt-1">{plan.description}</p>
+                  <p className="text-xs text-gray-500 mt-1 leading-tight">{plan.description}</p>
                 </div>
-                <ul className="space-y-2 mt-4 flex-1">
+                <ul className="space-y-1.5 mt-3 flex-1">
                   {plan.features.map((feature, i) => (
-                    <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
-                      <Check size={15} className="text-emerald-500 mt-0.5 flex-shrink-0" />
+                    <li key={i} className="text-xs text-gray-600 flex items-start gap-1.5">
+                      <Check size={12} className="text-emerald-500 mt-0.5 flex-shrink-0" />
                       <span>{feature}</span>
                     </li>
                   ))}
@@ -533,17 +533,17 @@ export default function SettingsPage() {
                   <button
                     disabled={isUpgrading}
                     onClick={() => handlePayPalUpgrade(plan.id)}
-                    className="w-full mt-5 py-3 px-4 bg-[#FFC439] hover:bg-[#f0b429] text-[#003087] font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full mt-4 py-2 px-3 bg-[#FFC439] hover:bg-[#f0b429] text-[#003087] font-bold rounded-lg flex items-center justify-center gap-1.5 text-xs transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {isUpgrading
-                      ? <div className="w-4 h-4 border-2 border-[#003087]/40 border-t-[#003087] rounded-full animate-spin" />
+                      ? <div className="w-3.5 h-3.5 border-2 border-[#003087]/40 border-t-[#003087] rounded-full animate-spin" />
                       : <><span>🅿️</span> Pay with PayPal</>
                     }
                   </button>
                 ) : (
                   <Button
                     variant={plan.highlighted ? 'primary' : 'outline'}
-                    className="w-full mt-5"
+                    className="w-full mt-4 !py-2 !text-xs"
                     disabled={isUpgrading}
                     onClick={() => handleUpgrade(plan.id)}
                   >

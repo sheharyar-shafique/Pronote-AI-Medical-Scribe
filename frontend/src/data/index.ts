@@ -189,7 +189,7 @@ export const pricingPlans = [
       'Team management dashboard',
     ],
     cta: 'Start Free Trial',
-    highlighted: true,
+    highlighted: false,
   },
   {
     id: 'group_annual',
