@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { supabase } from '../lib/supabase.js';
-import { stripe } from '../lib/stripe.js';
-import { paypalEnabled, verifyWebhookSignature, PayPalWebhookEvent, getSubscription } from '../lib/paypal.js';
+import { stripe, STRIPE_PRICES } from '../lib/stripe.js';
+import { paypalEnabled, verifyWebhookSignature, PayPalWebhookEvent, getSubscription, PAYPAL_PLANS } from '../lib/paypal.js';
 import Stripe from 'stripe';
 
 const router = Router();
@@ -119,26 +119,29 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
   if (subscription.status === 'active') status = 'active';
   else if (subscription.status === 'trialing') status = 'trial';
 
+  const priceId = subscription.items.data[0]?.price.id;
+  const plan = getPlanFromPriceId(priceId);
+
   // Update or create subscription record
   await supabase
     .from('subscriptions')
     .upsert({
       user_id: user.id,
       stripe_subscription_id: subscription.id,
-      plan: getPlanFromPriceId(subscription.items.data[0]?.price.id),
+      plan,
       status,
       current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
       current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
       cancel_at_period_end: subscription.cancel_at_period_end,
     }, { onConflict: 'stripe_subscription_id' });
 
-  // Update user status
+  // Update user status AND plan
   await supabase
     .from('users')
-    .update({ subscription_status: status })
+    .update({ subscription_status: status, subscription_plan: plan })
     .eq('id', user.id);
 
-  console.log(`Subscription updated for user ${user.id}, status: ${status}`);
+  console.log(`Subscription updated for user ${user.id}, plan: ${plan}, status: ${status}`);
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
@@ -219,13 +222,11 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
   console.log(`Payment succeeded for user ${user.id}`);
 }
 
+// Map Stripe price ID → plan name using env vars (no hardcoding)
 function getPlanFromPriceId(priceId: string): string {
-  const priceMap: Record<string, string> = {
-    'price_1SzS7dDXB0wGVl1wDrTojxoO': 'individual_annual',
-    'price_1SzSDSDXB0wGVl1wjWa5py0A': 'group_monthly',
-    'price_1SzSG6DXB0wGVl1wMoEzFUnm': 'group_annual',
-  };
-  return priceMap[priceId] || 'individual_annual';
+  const entries = Object.entries(STRIPE_PRICES) as [string, string][];
+  const match = entries.find(([, id]) => id && id === priceId);
+  return match ? match[0] : 'individual_monthly'; // default fallback
 }
 
 // ==================== PayPal Webhooks ====================
@@ -433,16 +434,11 @@ async function updateUserSubscriptionStatus(userId: string, status: 'active' | '
     .eq('id', userId);
 }
 
-function getPlanFromPayPalPlanId(planId: string): 'starter' | 'practice' | 'enterprise' {
-  const starterPlanId = process.env.PAYPAL_STARTER_PLAN_ID;
-  const practicePlanId = process.env.PAYPAL_PRACTICE_PLAN_ID;
-  const enterprisePlanId = process.env.PAYPAL_ENTERPRISE_PLAN_ID;
-
-  if (planId === starterPlanId) return 'starter';
-  if (planId === practicePlanId) return 'practice';
-  if (planId === enterprisePlanId) return 'enterprise';
-  
-  return 'practice'; // Default fallback
+// Map PayPal plan ID → plan name using env vars (no hardcoding)
+function getPlanFromPayPalPlanId(planId: string): string {
+  const entries = Object.entries(PAYPAL_PLANS) as [string, string][];
+  const match = entries.find(([, id]) => id && id === planId);
+  return match ? match[0] : 'individual_monthly'; // default fallback
 }
 
 export default router;
