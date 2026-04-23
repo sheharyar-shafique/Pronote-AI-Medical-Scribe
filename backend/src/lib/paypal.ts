@@ -15,6 +15,7 @@ if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
 export const paypalEnabled = !!(PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECRET);
 
 export const PAYPAL_PLANS: Record<string, string> = {
+  individual_monthly: process.env.PAYPAL_INDIVIDUAL_MONTHLY_PLAN_ID || '',
   individual_annual: process.env.PAYPAL_INDIVIDUAL_ANNUAL_PLAN_ID || '',
   group_monthly: process.env.PAYPAL_GROUP_MONTHLY_PLAN_ID || '',
   group_annual: process.env.PAYPAL_GROUP_ANNUAL_PLAN_ID || '',

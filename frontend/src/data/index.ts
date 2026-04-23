@@ -133,13 +133,13 @@ export const specialties = [
 
 export const pricingPlans = [
   {
-    id: 'individual_annual',
-    name: 'PronoteAI Individual Annual',
-    price: 300,
-    period: 'year',
-    pricePerMonth: 25,
+    id: 'individual_monthly',
+    name: 'PronoteAI Individual',
+    price: 29.99,
+    period: 'month',
+    pricePerMonth: 29.99,
     originalPrice: null,
-    description: 'Perfect for individual practitioners',
+    description: 'Perfect for solo practitioners, billed monthly',
     features: [
       'Unlimited clinical notes',
       'All note templates',
@@ -151,6 +151,25 @@ export const pricingPlans = [
     ],
     cta: 'Start Free Trial',
     highlighted: false,
+  },
+  {
+    id: 'individual_annual',
+    name: 'PronoteAI Individual Annual',
+    price: 300,
+    period: 'year',
+    pricePerMonth: 25,
+    originalPrice: 360,
+    description: 'Save $60/yr vs monthly — best for individuals',
+    features: [
+      'Everything in Individual Monthly',
+      'Save $60 per year',
+      'Priority email support',
+      'Early access to new features',
+      'Advanced analytics',
+      'EHR export',
+    ],
+    cta: 'Start Free Trial',
+    highlighted: true,
   },
   {
     id: 'group_monthly',
