@@ -154,6 +154,15 @@ export const authApi = {
       body: JSON.stringify({ challengeToken, otp }),
     });
   },
+
+  googleLogin: async (idToken: string) => {
+    const response = await apiFetch<{ user: User; token: string }>('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ idToken }),
+    });
+    setAuthToken(response.token);
+    return response;
+  },
 };
 
 // Users API

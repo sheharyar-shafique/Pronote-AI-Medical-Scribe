@@ -573,4 +573,131 @@ router.post('/verify-2fa-login', async (req, res: Response, next) => {
   } catch (e) { next(e); }
 });
 
+// ── POST /api/auth/google — Google OAuth sign-in / sign-up ──────────────────
+router.post('/google', async (req, res: Response, next) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) throw new AppError('Google ID token is required', 400);
+
+    // Verify the token with Google's tokeninfo endpoint (no extra packages needed)
+    const googleRes = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`
+    );
+    if (!googleRes.ok) throw new AppError('Invalid Google token', 401);
+
+    const payload = await googleRes.json() as {
+      sub: string;
+      email: string;
+      name: string;
+      picture: string;
+      email_verified: string;
+      aud: string;
+    };
+
+    // Validate audience matches our client ID
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (clientId && payload.aud !== clientId) {
+      throw new AppError('Token audience mismatch', 401);
+    }
+
+    if (payload.email_verified !== 'true') {
+      throw new AppError('Google account email is not verified', 401);
+    }
+
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+
+    // Find existing user
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', payload.email.toLowerCase())
+      .single();
+
+    let user = existingUser;
+
+    if (!user) {
+      // Auto-create account with 7-day trial
+      const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const { data: newUser, error: createError } = await supabase
+        .from('users')
+        .insert({
+          email: payload.email.toLowerCase(),
+          password_hash: '',            // No password for Google users
+          name: payload.name || payload.email.split('@')[0],
+          specialty: 'General Medicine',
+          role: 'clinician',
+          subscription_status: 'trial',
+          subscription_plan: 'practice',
+          trial_ends_at: trialEndsAt.toISOString(),
+          avatar_url: payload.picture || null,
+          google_id: payload.sub,
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+      user = newUser;
+
+      // Default settings
+      await supabase.from('user_settings').insert({
+        user_id: user.id,
+        default_template: 'soap',
+        auto_save: true,
+        dark_mode: false,
+        notifications_enabled: true,
+      });
+
+      await supabase.from('activity_logs').insert({
+        user_id: user.id,
+        action: 'user_signup',
+        resource_type: 'user',
+        resource_id: user.id,
+        metadata: { provider: 'google' },
+      });
+    } else {
+      // Update avatar if changed
+      if (payload.picture && user.avatar_url !== payload.picture) {
+        await supabase
+          .from('users')
+          .update({ avatar_url: payload.picture, google_id: payload.sub })
+          .eq('id', user.id);
+      }
+      // Check trial expiry
+      if (user.subscription_status === 'trial' && user.trial_ends_at) {
+        if (new Date(user.trial_ends_at) < new Date()) {
+          await supabase.from('users').update({ subscription_status: 'inactive' }).eq('id', user.id);
+          user.subscription_status = 'inactive';
+        }
+      }
+    }
+
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '24h' });
+
+    await writeAuditLog({
+      user_id: user.id,
+      action: 'auth_login_success',
+      resource_type: 'auth',
+      ip_address: clientIp,
+      user_agent: req.headers['user-agent'],
+      metadata: { provider: 'google', email: payload.email },
+    });
+
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        specialty: user.specialty,
+        subscriptionStatus: user.subscription_status,
+        subscriptionPlan: user.subscription_plan,
+        trialEndsAt: user.trial_ends_at,
+        createdAt: user.created_at,
+        avatar: user.avatar_url,
+      },
+      token,
+    });
+  } catch (e) { next(e); }
+});
+
 export default router;

@@ -5,3 +5,4 @@ export { default as Select } from './Select';
 export { default as Modal } from './Modal';
 export { default as Toggle } from './Toggle';
 export { default as Badge } from './Badge';
+export { default as GoogleAuthButton } from './GoogleAuthButton';

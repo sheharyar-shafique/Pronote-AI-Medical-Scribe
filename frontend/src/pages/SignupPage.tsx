@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff, Check, Sparkles, ArrowRight, Star, Shield, Zap } from 'lucide-react';
 import { useAuthStore } from '../store';
 import { specialties } from '../data';
+import GoogleAuthButton from '../components/ui/GoogleAuthButton';
 import toast from 'react-hot-toast';
 
 // ── Floating particle ──────────────────────────────────────────
@@ -55,8 +56,18 @@ export default function SignupPage() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  const { signup, isLoading } = useAuthStore();
+  const { signup, loginWithGoogle, isLoading } = useAuthStore();
   const navigate = useNavigate();
+
+  const handleGoogleSuccess = async (idToken: string) => {
+    try {
+      await loginWithGoogle(idToken);
+      toast.success('Account created & signed in with Google 🎉');
+      navigate('/dashboard');
+    } catch (err: any) {
+      toast.error(err?.message || 'Google sign-in failed');
+    }
+  };
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -149,6 +160,22 @@ export default function SignupPage() {
             className="bg-white/[0.04] border border-white/[0.08] rounded-3xl p-7 backdrop-blur-xl shadow-2xl"
           >
             <form onSubmit={handleSubmit} className="space-y-4">
+
+              {/* Google Sign-Up */}
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
+                <GoogleAuthButton
+                  onSuccess={handleGoogleSuccess}
+                  onError={(e) => toast.error(e)}
+                  label="Sign up with Google"
+                />
+              </motion.div>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-white/[0.06]" />
+                <span className="text-white/20 text-xs font-medium">or sign up with email</span>
+                <div className="flex-1 h-px bg-white/[0.06]" />
+              </div>
 
               {/* Full Name */}
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}>

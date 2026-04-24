@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff, Sparkles, Shield, Clock, Zap, ArrowRight, Activity, Lock } from 'lucide-react';
 import { useAuthStore } from '../store';
 import { authApi, ApiError } from '../services/api';
+import GoogleAuthButton from '../components/ui/GoogleAuthButton';
 import toast from 'react-hot-toast';
 
 // Floating particle component
@@ -58,10 +59,20 @@ export default function LoginPage() {
   const [twoFaOtp, setTwoFaOtp] = useState('');
   const [twoFaLoading, setTwoFaLoading] = useState(false);
 
-  const { login, isLoading } = useAuthStore();
+  const { login, loginWithGoogle, isLoading } = useAuthStore();
   const navigate = useNavigate();
 
   useEffect(() => { setMounted(true); }, []);
+
+  const handleGoogleSuccess = async (idToken: string) => {
+    try {
+      await loginWithGoogle(idToken);
+      toast.success('Welcome! Signed in with Google.');
+      navigate('/dashboard');
+    } catch (err: any) {
+      toast.error(err?.message || 'Google sign-in failed');
+    }
+  };
 
   const validate = () => {
     const newErrors: { email?: string; password?: string } = {};
@@ -352,6 +363,23 @@ export default function LoginPage() {
             ) : (
               /* ── Normal Login Form ── */
               <form onSubmit={handleSubmit} className="space-y-5">
+
+              {/* Google Sign-In */}
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+                <GoogleAuthButton
+                  onSuccess={handleGoogleSuccess}
+                  onError={(e) => toast.error(e)}
+                  label="Continue with Google"
+                />
+              </motion.div>
+
+              {/* Divider */}
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.28 }}
+                className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-white/[0.06]" />
+                <span className="text-white/20 text-xs font-medium">or continue with email</span>
+                <div className="flex-1 h-px bg-white/[0.06]" />
+              </motion.div>
 
               {/* Email */}
               <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
