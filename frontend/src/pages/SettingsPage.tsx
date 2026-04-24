@@ -283,9 +283,28 @@ export default function SettingsPage() {
               <p className="text-xs text-slate-400 mb-3">
                 {user?.subscriptionStatus === 'trial'
                   ? 'Your free trial ends soon'
-                  : `${user?.subscriptionPlan} plan`
+                  : (() => {
+                      const found = pricingPlans.find(p => p.id === user?.subscriptionPlan);
+                      return found ? found.name : `${user?.subscriptionPlan} plan`;
+                    })()
                 }
               </p>
+
+              {/* Plan features list */}
+              {(() => {
+                const found = pricingPlans.find(p => p.id === user?.subscriptionPlan);
+                return found ? (
+                  <ul className="space-y-1.5 mb-3">
+                    {found.features.map((feature, i) => (
+                      <li key={i} className="flex items-start gap-1.5 text-xs text-slate-300">
+                        <Check size={11} className="text-emerald-400 mt-0.5 flex-shrink-0" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null;
+              })()}
+
               <button
                 className="w-full py-2 border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
                 onClick={() => setShowUpgradeModal(true)}
