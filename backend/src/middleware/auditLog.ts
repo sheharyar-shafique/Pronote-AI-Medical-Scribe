@@ -24,7 +24,10 @@ type AuditAction =
   | 'auth_login_success'
   | 'auth_login_failed'
   | 'auth_password_change'
-  | 'auth_account_locked';
+  | 'auth_account_locked'
+  | 'auth_2fa_enabled'
+  | 'auth_2fa_disabled'
+  | 'auth_2fa_login_success';
 
 interface AuditLogEntry {
   user_id: string | null;
