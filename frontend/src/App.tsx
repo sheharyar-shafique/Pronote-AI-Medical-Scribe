@@ -23,6 +23,7 @@ import {
   SubscriptionLockedPage,
   TermsPage,
   PrivacyPage,
+  EnterprisePage,
 } from './pages';
 
 // HIPAA: Session inactivity timeout (30 minutes)
@@ -257,6 +258,14 @@ function App() {
           element={
             <ProtectedRoute>
               <HipaaBaaPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/enterprise"
+          element={
+            <ProtectedRoute>
+              <EnterprisePage />
             </ProtectedRoute>
           }
         />

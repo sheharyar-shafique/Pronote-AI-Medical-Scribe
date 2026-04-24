@@ -15,7 +15,8 @@ import {
   Users,
   Users2,
   BarChart2,
-  Sparkles
+  Sparkles,
+  Star,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store';
@@ -65,9 +66,15 @@ export default function Sidebar({ children }: SidebarProps) {
 
   const allMenuItems = user?.role === 'admin'
     ? [...menuItems, ...adminItems]
-    : user?.subscriptionPlan?.startsWith('group')
-      ? [...menuItems, { name: 'Team', icon: Users2, href: '/team', color: 'from-violet-400 to-purple-500' }]
-      : menuItems;
+    : user?.subscriptionPlan === 'group_annual'
+      ? [
+          ...menuItems,
+          { name: 'Team', icon: Users2, href: '/team', color: 'from-violet-400 to-purple-500' },
+          { name: 'Enterprise', icon: Star, href: '/enterprise', color: 'from-amber-400 to-orange-500' },
+        ]
+      : user?.subscriptionPlan?.startsWith('group')
+        ? [...menuItems, { name: 'Team', icon: Users2, href: '/team', color: 'from-violet-400 to-purple-500' }]
+        : menuItems;
 
   const SidebarContent = ({ collapsed }: { collapsed: boolean }) => (
     <div className="flex flex-col h-full">

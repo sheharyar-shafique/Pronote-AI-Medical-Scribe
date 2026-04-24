@@ -17,3 +17,4 @@ export { default as HipaaBaaPage } from './HipaaBaaPage';
 export { default as SubscriptionLockedPage } from './SubscriptionLockedPage';
 export { default as TermsPage } from './TermsPage';
 export { default as PrivacyPage } from './PrivacyPage';
+export { default as EnterprisePage } from './EnterprisePage';
