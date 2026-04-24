@@ -7,3 +7,5 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Rebuild triggered: Google OAuth env var added
