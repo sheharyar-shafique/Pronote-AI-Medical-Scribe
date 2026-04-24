@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, FileText, BarChart2,
-  Calendar, Activity, Download,
+  Calendar, Activity, Download, Lock,
 } from 'lucide-react';
 import { Sidebar } from '../components/layout';
+import { useAuthStore } from '../store';
 import { dashboardApi, AnalyticsData } from '../services/api';
 import { format, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -41,18 +42,24 @@ function CustomTooltip({ active, payload, label }: any) {
   );
 }
 
+const PAID_ANALYTICS_PLANS = ['individual_annual', 'group_monthly', 'group_annual'];
+
 export default function AnalyticsPage() {
+  const { user } = useAuthStore();
   const [period, setPeriod] = useState<7 | 30 | 90>(30);
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const hasAnalytics = PAID_ANALYTICS_PLANS.includes(user?.subscriptionPlan || '');
+
   useEffect(() => {
+    if (!hasAnalytics) return;
     setLoading(true);
     dashboardApi.getAnalytics(period)
       .then(setData)
       .catch(() => toast.error('Failed to load analytics'))
       .finally(() => setLoading(false));
-  }, [period]);
+  }, [period, hasAnalytics]);
 
   const handleExportCSV = () => {
     if (!data) return;
@@ -126,29 +133,59 @@ export default function AnalyticsPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-black text-white tracking-tight">Advanced Analytics</h1>
-                <p className="text-slate-500 text-sm">Clinical documentation insights & trends</p>
+                <p className="text-slate-500 text-sm">Clinical documentation insights &amp; trends</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              {/* Period selector */}
-              <div className="flex gap-1 bg-white/[0.04] border border-white/[0.08] rounded-xl p-1">
-                {periodOptions.map(o => (
-                  <button key={o.value} onClick={() => setPeriod(o.value)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      period === o.value
-                        ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30'
-                        : 'text-slate-500 hover:text-white'
-                    }`}>
-                    {o.label}
-                  </button>
+            {hasAnalytics && (
+              <div className="flex items-center gap-3">
+                {/* Period selector */}
+                <div className="flex gap-1 bg-white/[0.04] border border-white/[0.08] rounded-xl p-1">
+                  {periodOptions.map(o => (
+                    <button key={o.value} onClick={() => setPeriod(o.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        period === o.value
+                          ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30'
+                          : 'text-slate-500 hover:text-white'
+                      }`}>
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={handleExportCSV}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/[0.05] border border-white/[0.1] text-slate-300 hover:text-white hover:bg-white/[0.08] rounded-xl text-xs font-bold transition-all">
+                  <Download size={14} /> Export CSV
+                </button>
+              </div>
+            )}
+          </motion.div>
+
+          {/* Plan gate */}
+          {!hasAnalytics && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center justify-center py-24 text-center">
+              <div className="w-20 h-20 rounded-2xl bg-violet-500/10 border border-violet-500/25 flex items-center justify-center mb-6">
+                <Lock size={32} className="text-violet-400" />
+              </div>
+              <h2 className="text-2xl font-black text-white mb-2">Advanced Analytics</h2>
+              <p className="text-slate-400 text-sm max-w-md mb-2">
+                In-depth charts, trend analysis, and CSV exports are available on the
+              </p>
+              <p className="text-white font-bold mb-6">
+                Individual Annual, Group Monthly, or Group Annual plans
+              </p>
+              <div className="grid grid-cols-3 gap-4 mb-8 max-w-sm">
+                {['Notes over time', 'By template', 'By status', 'Busiest days', 'Trend vs previous', 'CSV export'].map((f, i) => (
+                  <div key={i} className="p-3 bg-white/[0.03] border border-white/[0.06] rounded-xl text-center opacity-50">
+                    <p className="text-slate-400 text-xs">{f}</p>
+                  </div>
                 ))}
               </div>
-              <button onClick={handleExportCSV}
-                className="flex items-center gap-2 px-4 py-2 bg-white/[0.05] border border-white/[0.1] text-slate-300 hover:text-white hover:bg-white/[0.08] rounded-xl text-xs font-bold transition-all">
-                <Download size={14} /> Export CSV
-              </button>
-            </div>
-          </motion.div>
+              <a href="/settings"
+                className="px-6 py-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white font-bold rounded-xl text-sm shadow-lg shadow-violet-500/25 hover:opacity-90 transition-all">
+                Upgrade Plan →
+              </a>
+            </motion.div>
+          )}
 
           {loading ? (
             <div className="flex items-center justify-center h-64">

@@ -428,7 +428,11 @@ export default function SettingsPage() {
                       <div>
                         <h4 className="font-bold text-white text-sm">Contact Support</h4>
                         <p className="text-xs text-slate-400 mt-0.5">
-                          {user?.subscriptionPlan?.startsWith('group') ? '🔴 Priority support — response within 4 hours' : 'Standard support — response within 24 hours'}
+                          {user?.subscriptionPlan?.startsWith('group')
+                            ? '🔴 Priority support — response within 4 hours'
+                            : user?.subscriptionPlan === 'individual_annual'
+                            ? '⚡ Priority email support — response within 12 hours'
+                            : 'Standard support — response within 24 hours'}
                         </p>
                       </div>
                       <MessageSquare size={16} className="text-slate-500" />
@@ -448,6 +452,43 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   </Link>
+                  {/* Early Access — individual_annual+ */}
+                  {(user?.subscriptionPlan === 'individual_annual' || user?.subscriptionPlan?.startsWith('group')) && (
+                    <div className="p-4 bg-white/[0.04] border border-white/[0.08] rounded-xl">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                            🚀 Early Access Features
+                            <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded-full">BETA</span>
+                          </h4>
+                          <p className="text-xs text-slate-400 mt-0.5">You have exclusive early access as an annual subscriber</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {[
+                          { name: 'AI Note Summarization', desc: 'One-click patient visit summaries', enabled: true },
+                          { name: 'Voice Commands', desc: 'Hands-free navigation while recording', enabled: true },
+                          { name: 'Smart Billing Codes', desc: 'AI-suggested ICD-10 & CPT codes', enabled: false },
+                          { name: 'Patient Portal Export', desc: 'Direct export to patient-facing portals', enabled: false },
+                        ].map((feature, i) => (
+                          <div key={i} className="flex items-center justify-between py-2 border-b border-white/[0.05] last:border-0">
+                            <div>
+                              <p className="text-white text-xs font-semibold">{feature.name}</p>
+                              <p className="text-slate-500 text-xs">{feature.desc}</p>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                              feature.enabled
+                                ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
+                                : 'text-slate-500 bg-white/5 border-white/10'
+                            }`}>
+                              {feature.enabled ? '✓ Live' : 'Coming Soon'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="pt-4 border-t border-white/[0.08]">
                     <h3 className="font-bold text-red-400 mb-3 text-sm">Danger Zone</h3>
                     <div className="p-4 border border-red-500/20 rounded-xl bg-red-500/5">
