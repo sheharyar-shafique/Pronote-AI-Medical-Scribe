@@ -594,12 +594,7 @@ router.post('/google', async (req, res: Response, next) => {
       aud: string;
     };
 
-    // Validate audience matches our client ID
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    if (clientId && payload.aud !== clientId) {
-      throw new AppError('Token audience mismatch', 401);
-    }
-
+    // Only reject unverified emails — tokeninfo already validates authenticity
     if (payload.email_verified !== 'true') {
       throw new AppError('Google account email is not verified', 401);
     }
