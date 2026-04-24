@@ -55,7 +55,15 @@ export default function SettingsPage() {
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [isSendingTicket, setIsSendingTicket] = useState(false);
   const [supportForm, setSupportForm] = useState({ subject: '', message: '', category: 'general' });
+
+  // 2FA real state
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [show2FAModal, setShow2FAModal] = useState(false);
+  const [twoFaAction, setTwoFaAction] = useState<'enable' | 'disable'>('enable');
+  const [twoFaStep, setTwoFaStep] = useState<'sending' | 'verify'>('sending');
+  const [twoFaOtp, setTwoFaOtp] = useState('');
+  const [twoFaLoading, setTwoFaLoading] = useState(false);
+  const [twoFaCodeSent, setTwoFaCodeSent] = useState(false);
   
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
@@ -114,13 +122,51 @@ export default function SettingsPage() {
     }
   };
 
-  const handleToggle2FA = () => {
-    if (twoFactorEnabled) {
-      setTwoFactorEnabled(false);
-      toast.success('Two-factor authentication disabled');
-    } else {
-      setTwoFactorEnabled(true);
-      toast.success('Two-factor authentication enabled');
+  const handleToggle2FA = async () => {
+    setTwoFaAction(twoFactorEnabled ? 'disable' : 'enable');
+    setTwoFaOtp('');
+    setTwoFaCodeSent(false);
+    setTwoFaStep('sending');
+    setShow2FAModal(true);
+  };
+
+  const handleSend2FACode = async () => {
+    setTwoFaLoading(true);
+    try {
+      if (twoFaAction === 'enable') {
+        await authApi.enable2fa();
+      } else {
+        await authApi.disable2fa(undefined);
+      }
+      setTwoFaCodeSent(true);
+      setTwoFaStep('verify');
+      toast.success('Verification code sent to your email!');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to send code');
+    } finally {
+      setTwoFaLoading(false);
+    }
+  };
+
+  const handleVerify2FA = async () => {
+    if (!twoFaOtp || twoFaOtp.length < 6) { toast.error('Enter the 6-digit code'); return; }
+    setTwoFaLoading(true);
+    try {
+      if (twoFaAction === 'enable') {
+        await authApi.verify2faSetup(twoFaOtp);
+        setTwoFactorEnabled(true);
+        toast.success('✅ Two-factor authentication enabled!');
+      } else {
+        await authApi.disable2fa(twoFaOtp);
+        setTwoFactorEnabled(false);
+        toast.success('Two-factor authentication disabled.');
+      }
+      setShow2FAModal(false);
+      setTwoFaOtp('');
+    } catch (e: any) {
+      toast.error(e.message || 'Invalid code');
+    } finally {
+      setTwoFaLoading(false);
     }
   };
 
@@ -855,6 +901,79 @@ export default function SettingsPage() {
                 <Send size={14} className="mr-1.5" /> Send Ticket
               </Button>
             </div>
+          </div>
+        </Modal>
+
+        {/* ── 2FA Setup / Disable Modal ── */}
+        <Modal
+          isOpen={show2FAModal}
+          onClose={() => { setShow2FAModal(false); setTwoFaOtp(''); }}
+          title={twoFaAction === 'enable' ? 'Enable Two-Factor Authentication' : 'Disable Two-Factor Authentication'}
+        >
+          <div className="space-y-5">
+            {twoFaStep === 'sending' ? (
+              <>
+                <div className="flex flex-col items-center text-center py-4">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 text-3xl ${
+                    twoFaAction === 'enable'
+                      ? 'bg-indigo-500/10 border border-indigo-500/25'
+                      : 'bg-red-500/10 border border-red-500/25'
+                  }`}>
+                    {twoFaAction === 'enable' ? '🔐' : '🔓'}
+                  </div>
+                  <p className="text-white font-bold text-base mb-2">
+                    {twoFaAction === 'enable'
+                      ? 'Add an extra layer of security'
+                      : 'Confirm you want to disable 2FA'}
+                  </p>
+                  <p className="text-slate-400 text-sm max-w-sm">
+                    {twoFaAction === 'enable'
+                      ? 'We\'ll send a 6-digit code to your email to verify and activate 2FA on your account.'
+                      : 'We\'ll send a 6-digit code to your email. You must confirm to disable 2FA.'}
+                  </p>
+                </div>
+                <div className="flex gap-3 justify-end">
+                  <Button variant="outline" onClick={() => setShow2FAModal(false)}>Cancel</Button>
+                  <Button onClick={handleSend2FACode} isLoading={twoFaLoading}>
+                    Send Code to Email
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-center py-2">
+                  <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center mx-auto mb-3">
+                    <Lock size={20} className="text-indigo-400" />
+                  </div>
+                  <p className="text-white font-bold mb-1">Enter Verification Code</p>
+                  <p className="text-slate-400 text-sm">Check your email for the 6-digit code</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">6-Digit Code</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="000000"
+                    value={twoFaOtp}
+                    onChange={e => setTwoFaOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    autoFocus
+                    className="w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-4 py-3 text-white text-center text-2xl font-black tracking-[0.5em] font-mono placeholder:text-slate-700 focus:outline-none focus:border-indigo-500/50"
+                  />
+                </div>
+                <div className="flex gap-3 justify-end">
+                  <Button variant="outline" onClick={() => setTwoFaStep('sending')}>← Resend Code</Button>
+                  <Button
+                    onClick={handleVerify2FA}
+                    isLoading={twoFaLoading}
+                    disabled={twoFaOtp.length < 6}
+                    className={twoFaAction === 'enable' ? '' : 'bg-red-600 hover:bg-red-700'}
+                  >
+                    {twoFaAction === 'enable' ? '✓ Activate 2FA' : 'Disable 2FA'}
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </Modal>
       </div>

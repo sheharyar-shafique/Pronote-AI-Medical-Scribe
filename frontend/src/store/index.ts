@@ -121,10 +121,34 @@ export const useAuthStore = create<AuthState>()(
         
         try {
           if (USE_API) {
-            const response = await authApi.login(email, password);
+            // Use raw fetch so we can check status 202 (2FA challenge)
+            const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+            const res = await fetch(`${API_BASE_URL}/auth/login`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email, password }),
+            });
+            const data = await res.json();
+
+            if (res.status === 202 && data.twoFaRequired) {
+              set({ isLoading: false });
+              // Throw a special error so LoginPage can show the 2FA input
+              const err: any = new Error('2FA required');
+              err.status = 202;
+              err.challengeToken = data.challengeToken;
+              throw err;
+            }
+
+            if (!res.ok) {
+              const err: any = new Error(data.error || 'Login failed');
+              err.status = res.status;
+              throw err;
+            }
+
+            setAuthToken(data.token);
             set({ 
-              user: mapApiUser(response.user), 
-              token: response.token,
+              user: mapApiUser(data.user), 
+              token: data.token,
               isAuthenticated: true, 
               isLoading: false 
             });
@@ -147,8 +171,7 @@ export const useAuthStore = create<AuthState>()(
             set({ user, isAuthenticated: true, isLoading: false });
           }
         } catch (error) {
-          const message = error instanceof ApiError ? error.message : 'Login failed';
-          set({ error: message, isLoading: false });
+          set({ error: (error as any)?.message || 'Login failed', isLoading: false });
           throw error;
         }
       },

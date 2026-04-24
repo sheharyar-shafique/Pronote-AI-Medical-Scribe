@@ -92,6 +92,54 @@ export async function sendOtpEmail(toEmail: string, otp: string): Promise<void> 
   await transporter.sendMail(mailOptions);
 }
 
+export async function send2faOtpEmail(toEmail: string, otp: string, action: 'enable' | 'disable' | 'login'): Promise<void> {
+  const transporter = createTransporter();
+  const actionLabel = action === 'enable' ? 'Enable Two-Factor Authentication'
+    : action === 'disable' ? 'Disable Two-Factor Authentication'
+    : 'Two-Factor Login Verification';
+  const actionDesc = action === 'login'
+    ? 'Use the code below to complete your sign-in.'
+    : `Use the code below to ${action} two-factor authentication on your account.`;
+
+  await transporter.sendMail({
+    from: `"Pronote AI" <${process.env.SMTP_USER}>`,
+    to: toEmail,
+    subject: `Your Pronote 2FA Code — ${actionLabel}`,
+    html: `
+      <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+      <body style="margin:0;padding:0;background:#0a0a0a;font-family:'Segoe UI',Arial,sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:40px 20px;">
+          <tr><td align="center">
+            <table width="520" cellpadding="0" cellspacing="0" style="background:#111;border-radius:20px;overflow:hidden;border:1px solid #1f1f1f;">
+              <tr><td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:36px;text-align:center;">
+                <div style="width:48px;height:48px;background:rgba(255,255,255,0.2);border-radius:12px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:22px;">🔐</div>
+                <h1 style="margin:0 0 4px;color:#fff;font-size:22px;font-weight:800;">Pronote AI</h1>
+                <p style="margin:0;color:rgba(255,255,255,0.7);font-size:13px;">${actionLabel}</p>
+              </td></tr>
+              <tr><td style="padding:40px 36px;">
+                <p style="margin:0 0 24px;color:#888;font-size:14px;line-height:1.6;">${actionDesc} This code expires in <strong style="color:#8b5cf6;">10 minutes</strong>.</p>
+                <div style="background:#0d0b1f;border:2px solid #6366f1;border-radius:16px;padding:28px;text-align:center;margin-bottom:28px;">
+                  <p style="margin:0 0 8px;color:#818cf8;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;">Verification Code</p>
+                  <div style="letter-spacing:12px;font-size:42px;font-weight:900;color:#fff;font-family:monospace;margin-left:12px;">${otp}</div>
+                </div>
+                <div style="background:#1a1a1a;border-radius:12px;padding:16px;margin-bottom:20px;">
+                  <p style="margin:0;color:#666;font-size:13px;line-height:1.5;">🔒 If you did not request this code, please ignore this email. Your account remains secure.</p>
+                </div>
+                <p style="margin:0;color:#555;font-size:12px;text-align:center;">This code expires in 10 minutes and can only be used once.</p>
+              </td></tr>
+              <tr><td style="padding:20px 36px;border-top:1px solid #1f1f1f;text-align:center;">
+                <p style="margin:0;color:#444;font-size:12px;">© ${new Date().getFullYear()} Pronote AI Medical Scribe. All rights reserved.</p>
+              </td></tr>
+            </table>
+          </td></tr>
+        </table>
+      </body></html>
+    `,
+  });
+}
+
+
+
 export async function sendTrialReminderEmail(
   toEmail: string,
   userName: string,

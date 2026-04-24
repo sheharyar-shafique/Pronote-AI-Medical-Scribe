@@ -6,7 +6,7 @@ import { signupSchema, loginSchema } from '../types/schemas.js';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { writeAuditLog } from '../middleware/auditLog.js';
-import { sendOtpEmail } from '../lib/mailer.js';
+import { sendOtpEmail, send2faOtpEmail } from '../lib/mailer.js';
 
 // ── OTP Store (in-memory, resets on restart) ────────────────
 interface OtpRecord {
@@ -15,6 +15,7 @@ interface OtpRecord {
   verified: boolean;
 }
 const otpStore = new Map<string, OtpRecord>();
+const twoFaStore = new Map<string, OtpRecord>(); // separate store for 2FA OTPs
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
 function generateOtp(): string {
@@ -203,6 +204,24 @@ router.post('/login', async (req, res: Response, next) => {
           .eq('id', user.id);
         user.subscription_status = 'inactive';
       }
+    }
+
+    // ── 2FA check ───────────────────────────────────────────────────────
+    if (user.two_factor_enabled) {
+      const otp = generateOtp();
+      twoFaStore.set(user.email, {
+        otp,
+        expiresAt: new Date(Date.now() + OTP_EXPIRY_MS),
+        verified: false,
+      });
+      try { await send2faOtpEmail(user.email, otp, 'login'); } catch {}
+      // Return a short-lived challenge token (no full access yet)
+      const challengeToken = jwt.sign(
+        { userId: user.id, twoFaChallenge: true },
+        process.env.JWT_SECRET!,
+        { expiresIn: '10m' }
+      );
+      return res.status(202).json({ twoFaRequired: true, challengeToken });
     }
 
     // Generate JWT (24h expiry for HIPAA session management)
@@ -456,6 +475,102 @@ router.post('/reset-password', async (req, res: Response, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+// ── POST /api/auth/enable-2fa — send OTP to user's email to start setup ────
+router.post('/enable-2fa', authenticate, async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const { data: user } = await supabase.from('users').select('email, two_factor_enabled').eq('id', req.user!.id).single();
+    if (!user) throw new AppError('User not found', 404);
+    if (user.two_factor_enabled) throw new AppError('2FA is already enabled', 400);
+
+    const otp = generateOtp();
+    twoFaStore.set(user.email, { otp, expiresAt: new Date(Date.now() + OTP_EXPIRY_MS), verified: false });
+    await send2faOtpEmail(user.email, otp, 'enable');
+    res.json({ message: 'Verification code sent to your email. Enter it to activate 2FA.' });
+  } catch (e) { next(e); }
+});
+
+// ── POST /api/auth/verify-2fa-setup — confirm OTP and activate 2FA ──────────
+router.post('/verify-2fa-setup', authenticate, async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const { otp } = req.body;
+    if (!otp) throw new AppError('OTP is required', 400);
+
+    const { data: user } = await supabase.from('users').select('email').eq('id', req.user!.id).single();
+    if (!user) throw new AppError('User not found', 404);
+
+    const record = twoFaStore.get(user.email);
+    if (!record) throw new AppError('No pending 2FA setup. Please request a new code.', 400);
+    if (new Date() > record.expiresAt) { twoFaStore.delete(user.email); throw new AppError('Code expired. Please request a new one.', 400); }
+    if (record.otp !== otp.trim()) throw new AppError('Invalid code. Please try again.', 400);
+
+    await supabase.from('users').update({ two_factor_enabled: true }).eq('id', req.user!.id);
+    twoFaStore.delete(user.email);
+
+    await writeAuditLog({ user_id: req.user!.id, action: 'auth_2fa_enabled', resource_type: 'auth', ip_address: req.ip, user_agent: req.headers['user-agent'], metadata: {} });
+    res.json({ message: '2FA enabled successfully.' });
+  } catch (e) { next(e); }
+});
+
+// ── POST /api/auth/disable-2fa — send OTP then disable ──────────────────────
+router.post('/disable-2fa', authenticate, async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const { otp } = req.body;
+    const { data: user } = await supabase.from('users').select('email, two_factor_enabled').eq('id', req.user!.id).single();
+    if (!user) throw new AppError('User not found', 404);
+    if (!user.two_factor_enabled) throw new AppError('2FA is not enabled', 400);
+
+    // Step 1: no OTP provided → send one
+    if (!otp) {
+      const code = generateOtp();
+      twoFaStore.set(user.email, { otp: code, expiresAt: new Date(Date.now() + OTP_EXPIRY_MS), verified: false });
+      await send2faOtpEmail(user.email, code, 'disable');
+      return res.json({ message: 'Verification code sent. Confirm to disable 2FA.' });
+    }
+
+    // Step 2: verify OTP and disable
+    const record = twoFaStore.get(user.email);
+    if (!record) throw new AppError('No pending request. Request a new code first.', 400);
+    if (new Date() > record.expiresAt) { twoFaStore.delete(user.email); throw new AppError('Code expired.', 400); }
+    if (record.otp !== otp.trim()) throw new AppError('Invalid code.', 400);
+
+    await supabase.from('users').update({ two_factor_enabled: false }).eq('id', req.user!.id);
+    twoFaStore.delete(user.email);
+
+    await writeAuditLog({ user_id: req.user!.id, action: 'auth_2fa_disabled', resource_type: 'auth', ip_address: req.ip, user_agent: req.headers['user-agent'], metadata: {} });
+    res.json({ message: '2FA disabled.' });
+  } catch (e) { next(e); }
+});
+
+// ── POST /api/auth/verify-2fa-login — verify OTP during login ───────────────
+router.post('/verify-2fa-login', async (req, res: Response, next) => {
+  try {
+    const { challengeToken, otp } = req.body;
+    if (!challengeToken || !otp) throw new AppError('Challenge token and OTP are required', 400);
+
+    let payload: any;
+    try { payload = jwt.verify(challengeToken, process.env.JWT_SECRET!); } catch { throw new AppError('Challenge token expired or invalid. Please log in again.', 401); }
+    if (!payload.twoFaChallenge) throw new AppError('Invalid challenge token.', 401);
+
+    const { data: user } = await supabase.from('users').select('*').eq('id', payload.userId).single();
+    if (!user) throw new AppError('User not found', 404);
+
+    const record = twoFaStore.get(user.email);
+    if (!record) throw new AppError('No pending 2FA. Please log in again.', 400);
+    if (new Date() > record.expiresAt) { twoFaStore.delete(user.email); throw new AppError('Code expired. Please log in again.', 400); }
+    if (record.otp !== otp.trim()) throw new AppError('Invalid code.', 400);
+
+    twoFaStore.delete(user.email);
+
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '24h' });
+    await writeAuditLog({ user_id: user.id, action: 'auth_2fa_login_success', resource_type: 'auth', ip_address: req.ip, user_agent: req.headers['user-agent'], metadata: {} });
+
+    res.json({
+      user: { id: user.id, email: user.email, name: user.name, role: user.role, specialty: user.specialty, subscriptionStatus: user.subscription_status, subscriptionPlan: user.subscription_plan, trialEndsAt: user.trial_ends_at, createdAt: user.created_at, avatar: user.avatar_url },
+      token,
+    });
+  } catch (e) { next(e); }
 });
 
 export default router;

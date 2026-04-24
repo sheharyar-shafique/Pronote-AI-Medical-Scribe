@@ -128,6 +128,32 @@ export const authApi = {
       body: JSON.stringify({ email, otp, newPassword }),
     });
   },
+
+  // ── 2FA ──────────────────────────────────────────────────────────────────
+  enable2fa: async () => {
+    return apiFetch<{ message: string }>('/auth/enable-2fa', { method: 'POST' });
+  },
+
+  verify2faSetup: async (otp: string) => {
+    return apiFetch<{ message: string }>('/auth/verify-2fa-setup', {
+      method: 'POST',
+      body: JSON.stringify({ otp }),
+    });
+  },
+
+  disable2fa: async (otp?: string) => {
+    return apiFetch<{ message: string }>('/auth/disable-2fa', {
+      method: 'POST',
+      body: JSON.stringify({ otp }),
+    });
+  },
+
+  verify2faLogin: async (challengeToken: string, otp: string) => {
+    return apiFetch<{ user: User; token: string }>('/auth/verify-2fa-login', {
+      method: 'POST',
+      body: JSON.stringify({ challengeToken, otp }),
+    });
+  },
 };
 
 // Users API

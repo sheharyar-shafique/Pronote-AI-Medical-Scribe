@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion, useAnimation, AnimatePresence } from 'framer-motion';
-import { Eye, EyeOff, Sparkles, Shield, Clock, Zap, ArrowRight, Activity } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Eye, EyeOff, Sparkles, Shield, Clock, Zap, ArrowRight, Activity, Lock } from 'lucide-react';
 import { useAuthStore } from '../store';
+import { authApi, ApiError } from '../services/api';
 import toast from 'react-hot-toast';
 
 // Floating particle component
@@ -51,6 +52,12 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [mounted, setMounted] = useState(false);
 
+  // 2FA state
+  const [twoFaRequired, setTwoFaRequired] = useState(false);
+  const [challengeToken, setChallengeToken] = useState('');
+  const [twoFaOtp, setTwoFaOtp] = useState('');
+  const [twoFaLoading, setTwoFaLoading] = useState(false);
+
   const { login, isLoading } = useAuthStore();
   const navigate = useNavigate();
 
@@ -73,8 +80,47 @@ export default function LoginPage() {
       await login(email, password);
       toast.success('Welcome back!');
       navigate('/dashboard');
-    } catch {
-      toast.error('Invalid credentials');
+    } catch (err: any) {
+      // 202 = 2FA required
+      if (err?.status === 202 && err?.challengeToken) {
+        setChallengeToken(err.challengeToken);
+        setTwoFaRequired(true);
+        toast.success('Check your email for a 6-digit verification code.');
+      } else {
+        toast.error(err?.message || 'Invalid credentials');
+      }
+    }
+  };
+
+  const handleTwoFaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!twoFaOtp.trim() || twoFaOtp.length < 6) { toast.error('Enter the 6-digit code'); return; }
+    setTwoFaLoading(true);
+    try {
+      const resp = await authApi.verify2faLogin(challengeToken, twoFaOtp);
+      // Manually set auth state
+      const { useAuthStore: store } = await import('../store');
+      store.setState({
+        user: {
+          id: resp.user.id, email: resp.user.email, name: resp.user.name,
+          role: resp.user.role as any, specialty: resp.user.specialty,
+          subscriptionStatus: resp.user.subscriptionStatus as any,
+          subscriptionPlan: resp.user.subscriptionPlan as any,
+          trialEndsAt: resp.user.trialEndsAt ? new Date(resp.user.trialEndsAt) : null,
+          createdAt: new Date(resp.user.createdAt),
+          avatar: resp.user.avatar,
+        },
+        token: resp.token,
+        isAuthenticated: true,
+      });
+      const { setAuthToken } = await import('../services/api');
+      setAuthToken(resp.token);
+      toast.success('Welcome back!');
+      navigate('/dashboard');
+    } catch (err: any) {
+      toast.error(err?.message || 'Invalid code');
+    } finally {
+      setTwoFaLoading(false);
     }
   };
 
@@ -258,7 +304,54 @@ export default function LoginPage() {
             transition={{ delay: 0.2, duration: 0.6 }}
             className="bg-white/[0.04] border border-white/[0.08] rounded-3xl p-8 backdrop-blur-xl shadow-2xl"
           >
-            <form onSubmit={handleSubmit} className="space-y-5">
+            {twoFaRequired ? (
+              /* ── 2FA OTP Step ── */
+              <form onSubmit={handleTwoFaSubmit} className="space-y-5">
+                <div className="text-center mb-2">
+                  <div className="w-14 h-14 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center mx-auto mb-3">
+                    <Lock size={24} className="text-indigo-400" />
+                  </div>
+                  <h2 className="text-xl font-black text-white">Two-Factor Verification</h2>
+                  <p className="text-white/40 text-sm mt-1">Enter the 6-digit code sent to <span className="text-white/60 font-semibold">{email}</span></p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-white/60 mb-2">Verification Code</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="000000"
+                    value={twoFaOtp}
+                    onChange={e => setTwoFaOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className={`${inputBase} border-white/[0.08] text-center text-2xl font-black tracking-[0.5em] font-mono`}
+                    autoFocus
+                  />
+                </div>
+
+                <motion.button
+                  type="submit"
+                  disabled={twoFaLoading || twoFaOtp.length < 6}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full py-4 px-6 rounded-xl font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    {twoFaLoading
+                      ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      : <><Lock size={16} /> Verify &amp; Sign In</>}
+                  </span>
+                </motion.button>
+
+                <button type="button" onClick={() => { setTwoFaRequired(false); setTwoFaOtp(''); }}
+                  className="w-full text-center text-sm text-white/30 hover:text-white/60 transition-colors">
+                  ← Back to login
+                </button>
+              </form>
+            ) : (
+              /* ── Normal Login Form ── */
+              <form onSubmit={handleSubmit} className="space-y-5">
 
               {/* Email */}
               <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
@@ -345,6 +438,7 @@ export default function LoginPage() {
                 </motion.button>
               </motion.div>
             </form>
+            )}
           </motion.div>
 
           <motion.p
