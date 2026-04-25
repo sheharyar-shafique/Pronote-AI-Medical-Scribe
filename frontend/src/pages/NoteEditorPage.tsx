@@ -169,7 +169,7 @@ export default function NoteEditorPage() {
         >
           <button
             onClick={() => navigate('/notes')}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+            className="flex items-center gap-2 text-slate-400 hover:text-white mb-4 transition-colors"
           >
             <ArrowLeft size={18} />
             Back to Notes
@@ -178,7 +178,7 @@ export default function NoteEditorPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <h1 className="text-2xl font-bold text-gray-900">{note.patientName}</h1>
+                <h1 className="text-2xl font-bold text-white">{note.patientName}</h1>
                 <Badge 
                   variant={
                     note.status === 'signed' 
@@ -191,7 +191,7 @@ export default function NoteEditorPage() {
                   {note.status}
                 </Badge>
               </div>
-              <div className="flex items-center gap-4 text-sm text-gray-500">
+              <div className="flex items-center gap-4 text-sm text-slate-400">
                 <span className="flex items-center gap-1">
                   <Clock size={14} />
                   {format(new Date(note.dateOfService), 'MMMM d, yyyy')}
@@ -242,7 +242,7 @@ export default function NoteEditorPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <Card className="overflow-hidden">
+          <Card className="overflow-hidden bg-white/[0.04] border border-white/[0.08]">
             <div className="p-6 space-y-6">
               {getSections().map((section, index) => {
                 const key = sectionKeyMap[section] || 'customSections';
@@ -256,16 +256,18 @@ export default function NoteEditorPage() {
                     transition={{ delay: 0.05 * index }}
                     className="space-y-2"
                   >
-                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                      <Edit3 size={14} className="text-emerald-600" />
+                    <label className="flex items-center gap-2 text-sm font-semibold text-emerald-400 uppercase tracking-wide">
+                      <Edit3 size={14} className="text-emerald-500" />
                       {section}
                     </label>
                     <textarea
                       value={value as string}
                       onChange={(e) => handleContentChange(key, e.target.value)}
                       disabled={note.status === 'signed'}
-                      className={`w-full min-h-[120px] p-4 border border-gray-200 rounded-xl resize-y focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all ${
-                        note.status === 'signed' ? 'bg-gray-50' : ''
+                      className={`w-full min-h-[120px] p-4 border border-white/[0.12] rounded-xl resize-y focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-400/40 transition-all text-white placeholder-white/25 text-sm leading-relaxed ${
+                        note.status === 'signed'
+                          ? 'bg-white/[0.03] cursor-not-allowed opacity-70'
+                          : 'bg-white/5 hover:bg-white/[0.07]'
                       }`}
                       placeholder={`Enter ${section.toLowerCase()} details...`}
                     />
@@ -275,13 +277,13 @@ export default function NoteEditorPage() {
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-              <div className="flex items-center justify-between text-sm text-gray-500">
+            <div className="px-6 py-4 bg-white/[0.03] border-t border-white/[0.08]">
+              <div className="flex items-center justify-between text-sm text-slate-400">
                 <span>
                   Last updated: {format(new Date(note.updatedAt), 'MMM d, yyyy h:mm a')}
                 </span>
                 {hasChanges && (
-                  <span className="text-amber-600 flex items-center gap-1">
+                  <span className="text-amber-400 flex items-center gap-1">
                     <div className="w-2 h-2 bg-amber-500 rounded-full" />
                     Unsaved changes
                   </span>
@@ -297,10 +299,10 @@ export default function NoteEditorPage() {
           onClose={() => setShowSignModal(false)}
           title="Sign Clinical Note"
         >
-          <p className="text-gray-600 mb-4">
+          <p className="text-slate-400 mb-4">
             By signing this note, you confirm that:
           </p>
-          <ul className="text-sm text-gray-600 space-y-2 mb-6">
+          <ul className="text-sm text-slate-300 space-y-2 mb-6">
             <li className="flex items-start gap-2">
               <CheckCircle size={16} className="text-emerald-500 mt-0.5 flex-shrink-0" />
               <span>The information in this note is accurate and complete</span>

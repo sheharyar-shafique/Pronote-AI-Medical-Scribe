@@ -135,12 +135,32 @@ router.post('/transcribe', async (req: AuthenticatedRequest, res: Response, next
         transcription = response;
       } catch (whisperError: any) {
         console.error('Whisper transcription error:', whisperError.message);
-        // Fallback to mock transcription if Whisper fails
-        transcription = generateMockTranscription();
+        // Mark as failed so we don't generate a note from silence
+        await supabase
+          .from('audio_files')
+          .update({ transcription_status: 'failed' })
+          .eq('id', audioFileId);
+        throw new AppError('Transcription failed. Please try recording again with clearer audio.', 422);
       }
     } else {
       // Mock transcription for development
       transcription = generateMockTranscription();
+    }
+
+    // ── Silence / empty-audio guard ──────────────────────────────────────────
+    // Whisper returns an empty string (or a very short filler) when it detects
+    // no speech. Reject the request so the frontend shows a helpful error
+    // instead of generating a hallucinated note.
+    const meaningfulWords = transcription.trim().split(/\s+/).filter(w => w.length > 1);
+    if (meaningfulWords.length < 5) {
+      await supabase
+        .from('audio_files')
+        .update({ transcription_status: 'failed' })
+        .eq('id', audioFileId);
+      throw new AppError(
+        'No speech detected in the recording. Please speak clearly during the visit before stopping.',
+        422
+      );
     }
 
     // Update audio file with transcription
@@ -168,6 +188,15 @@ router.post('/generate-note', async (req: AuthenticatedRequest, res: Response, n
 
     if (!transcription || !template) {
       throw new AppError('Transcription and template are required', 400);
+    }
+
+    // Guard: refuse to generate a note from silence / empty audio
+    const meaningfulWords = (transcription as string).trim().split(/\s+/).filter((w: string) => w.length > 1);
+    if (meaningfulWords.length < 5) {
+      throw new AppError(
+        'No speech detected. Please record an actual patient conversation before generating a note.',
+        422
+      );
     }
 
     let noteContent: Record<string, string>;
