@@ -43,15 +43,52 @@ export interface NoteContent {
   customSections?: Record<string, string>;
 }
 
-export type NoteTemplate = 
+export type NoteTemplate =
+  // General / Core
   | 'soap'
+  | 'progress-notes'
+  | 'daily-note'
+  | 'hpi'
+  | 'chart-notes'
+  | 'chronic-care-management'
+  | 'wellness-plan'
+  // Psychiatry & Mental Health
   | 'psychiatry'
+  | 'psych-eval'
+  | 'psychiatric-soap'
+  | 'mental-health-progress-note'
+  | 'mental-health-intake'
+  | 'mental-health-risk-assessment'
+  | 'biopsychosocial-assessment'
+  | 'behavioral-health-progress-note'
+  // Therapy
   | 'therapy'
+  | 'girp-note'
+  | 'dbt-diary-card'
+  | 'family-therapy-note'
+  | 'couples-therapy-note'
+  // Physical & Occupational Therapy
+  | 'physical-therapy-eval'
+  | 'occupational-therapy'
+  | 'speech-therapy'
+  // Nursing
+  | 'nursing-notes'
+  | 'nursing-report-sheet'
+  // Specialty
   | 'pediatrics'
   | 'cardiology'
   | 'dermatology'
   | 'orthopedics'
-  | 'custom';
+  | 'adime-note'
+  // Administrative / Forms
+  | 'patient-referral-form'
+  | 'telehealth-consent'
+  | 'esa-letter'
+  | 'medical-certificate'
+  | 'insurance-claim'
+  // Custom
+  | 'custom'
+  | (string & Record<never, never>); // allow custom-<timestamp> IDs
 
 export interface Template {
   id: NoteTemplate;
@@ -59,6 +96,8 @@ export interface Template {
   description: string;
   sections: string[];
   specialty: string;
+  isCustom?: boolean;
+  isDefault?: boolean;
 }
 
 // Recording types

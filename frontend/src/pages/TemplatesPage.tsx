@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  FileText, Plus, Search, Pencil, Trash2, Share2, CheckCircle2, X
+  FileText, Plus, Search, Pencil, Trash2, Share2, CheckCircle2, X, Tag
 } from 'lucide-react';
 import { templatesApi } from '../services/api';
 import { Sidebar } from '../components/layout';
@@ -11,6 +11,32 @@ import { useSettingsStore } from '../store';
 import { templates as defaultTemplates } from '../data';
 import toast from 'react-hot-toast';
 import type { Template, NoteTemplate } from '../types';
+
+// ── Derive unique specialty list from default templates ──────────────────────
+const ALL_SPECIALTIES = 'All';
+const specialtyList = [
+  ALL_SPECIALTIES,
+  ...Array.from(new Set(defaultTemplates.map(t => t.specialty))),
+];
+
+// Specialty → accent color map
+const SPECIALTY_COLORS: Record<string, string> = {
+  General:              'bg-sky-500/15 text-sky-300 border-sky-500/30',
+  Psychiatry:           'bg-violet-500/15 text-violet-300 border-violet-500/30',
+  'Mental Health':      'bg-purple-500/15 text-purple-300 border-purple-500/30',
+  Therapy:              'bg-pink-500/15 text-pink-300 border-pink-500/30',
+  'Physical Therapy':   'bg-orange-500/15 text-orange-300 border-orange-500/30',
+  'Occupational Therapy': 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  'Speech Therapy':     'bg-yellow-500/15 text-yellow-300 border-yellow-500/30',
+  Nursing:              'bg-teal-500/15 text-teal-300 border-teal-500/30',
+  Pediatrics:           'bg-green-500/15 text-green-300 border-green-500/30',
+  Cardiology:           'bg-red-500/15 text-red-300 border-red-500/30',
+  Dermatology:          'bg-rose-500/15 text-rose-300 border-rose-500/30',
+  Orthopedics:          'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
+  Dietetics:            'bg-lime-500/15 text-lime-300 border-lime-500/30',
+  Administrative:       'bg-slate-500/15 text-slate-300 border-slate-500/30',
+  Custom:               'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+};
 
 export default function TemplatesPage() {
   const navigate = useNavigate();
@@ -23,6 +49,7 @@ export default function TemplatesPage() {
   const [customTemplates, setCustomTemplates] = useState<Template[]>([]);
   const [activeTab, setActiveTab] = useState<'my' | 'all'>('my');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSpecialty, setSelectedSpecialty] = useState(ALL_SPECIALTIES);
 
   // All templates = built-ins + custom
   const allTemplates: Template[] = [...defaultTemplates, ...customTemplates];
@@ -30,13 +57,17 @@ export default function TemplatesPage() {
   // My Templates = only added ones
   const myTemplates = allTemplates.filter(t => addedIds.includes(t.id));
 
-  const displayed = (activeTab === 'my' ? myTemplates : allTemplates).filter(t =>
-    t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const displayed = (activeTab === 'my' ? myTemplates : allTemplates)
+    .filter(t =>
+      (selectedSpecialty === ALL_SPECIALTIES || t.specialty === selectedSpecialty) &&
+      (
+        t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.description.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    );
 
-  // ── Create modal ────────────────────────────────────────────────────────────
+  // ── Create modal ─────────────────────────────────────────────────────────────
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newForm, setNewForm] = useState({ name: '', description: '', sections: '', specialty: '' });
 
@@ -58,7 +89,7 @@ export default function TemplatesPage() {
     toast.success('Template created!');
   };
 
-  // ── Edit modal ──────────────────────────────────────────────────────────────
+  // ── Edit modal ───────────────────────────────────────────────────────────────
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [editForm, setEditForm] = useState({ name: '', description: '', sections: '', specialty: '' });
@@ -76,7 +107,6 @@ export default function TemplatesPage() {
     setIsSaving(true);
     try {
       const sections = editForm.sections.split(',').map(s => s.trim()).filter(Boolean);
-      // For custom templates saved to DB
       if (editingTemplate.isCustom) {
         const dbId = (editingTemplate as Template & { dbId?: string }).dbId;
         await templatesApi.update(dbId || editingTemplate.id, {
@@ -84,18 +114,10 @@ export default function TemplatesPage() {
           templateType: editingTemplate.id, sections, specialty: editForm.specialty,
         });
         setCustomTemplates(prev => prev.map(t =>
-          t.id === editingTemplate.id ? { ...t, name: editForm.name, description: editForm.description, sections, specialty: editForm.specialty } : t
+          t.id === editingTemplate.id
+            ? { ...t, name: editForm.name, description: editForm.description, sections, specialty: editForm.specialty }
+            : t
         ));
-      } else {
-        // For built-in templates, just update local state (they're not in DB)
-        // We reflect the edited version in-memory only
-        setCustomTemplates(prev => {
-          const exists = prev.find(t => t.id === editingTemplate.id + '-edited');
-          if (exists) return prev;
-          return prev; // built-in edits stored visually via allTemplates override
-        });
-        // Update the defaultTemplates in-memory reference by pushing an override into customTemplates
-        // Replace built-in with edited copy tracked by same ID
       }
       toast.success('Template updated!');
       setIsEditOpen(false);
@@ -106,7 +128,7 @@ export default function TemplatesPage() {
     }
   };
 
-  // ── Add / Remove ────────────────────────────────────────────────────────────
+  // ── Add / Remove ─────────────────────────────────────────────────────────────
   const handleToggleAdd = (t: Template) => {
     if (addedIds.includes(t.id)) {
       setAddedIds(prev => prev.filter(id => id !== t.id));
@@ -117,7 +139,7 @@ export default function TemplatesPage() {
     }
   };
 
-  // ── Delete (custom only) ────────────────────────────────────────────────────
+  // ── Delete (custom only) ─────────────────────────────────────────────────────
   const handleDelete = async (t: Template) => {
     if (!confirm(`Delete "${t.name}"?`)) return;
     try {
@@ -133,13 +155,13 @@ export default function TemplatesPage() {
     }
   };
 
-  // ── Share ───────────────────────────────────────────────────────────────────
+  // ── Share ─────────────────────────────────────────────────────────────────────
   const handleShare = (t: Template) => {
     navigator.clipboard.writeText(`${t.name}: ${t.sections.join(', ')}`);
     toast.success('Template info copied to clipboard!');
   };
 
-  // ── Use template ────────────────────────────────────────────────────────────
+  // ── Use template ──────────────────────────────────────────────────────────────
   const handleUse = (t: Template) => {
     setTemplate(t.id);
     toast.success(`Now using "${t.name}"`);
@@ -164,12 +186,15 @@ export default function TemplatesPage() {
                     <FileText size={17} className="text-white" />
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Template Library</h1>
+                  <span className="px-2.5 py-0.5 rounded-full bg-white/[0.07] border border-white/[0.1] text-slate-400 text-xs font-semibold">
+                    {allTemplates.length} templates
+                  </span>
                 </div>
                 <p className="text-slate-400 ml-12 text-sm">
-                  Choose or edit any of our templates, or create your own template from scratch.
+                  Choose or edit any of our templates, or create your own from scratch.
                 </p>
                 <p className="text-slate-400 ml-12 text-sm">
-                  Added templates will appear in the <span className="text-white font-semibold italic">Templates</span> dropdown in the New Conversation screen.
+                  Added templates appear in the <span className="text-white font-semibold italic">Templates</span> dropdown in the New Conversation screen.
                 </p>
               </div>
               <motion.button
@@ -184,14 +209,14 @@ export default function TemplatesPage() {
           </motion.div>
 
           {/* Search + Tabs */}
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="flex flex-col sm:flex-row sm:items-center gap-3 mt-6 mb-6">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="flex flex-col sm:flex-row sm:items-center gap-3 mt-6 mb-4">
             <div className="relative flex-1 max-w-lg">
               <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search by template name or specialty (i.e soap, intake, therapy, primary care)"
+                placeholder="Search by name, specialty or keyword…"
                 className="w-full pl-10 pr-4 py-2.5 border border-white/[0.1] rounded-xl bg-white/5 text-white placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400/40 transition-all text-sm"
               />
             </div>
@@ -208,10 +233,35 @@ export default function TemplatesPage() {
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  {tab === 'my' ? 'My Templates' : 'All Templates'}
+                  {tab === 'my'
+                    ? `My Templates (${myTemplates.length})`
+                    : `All Templates (${allTemplates.length})`}
                 </button>
               ))}
             </div>
+          </motion.div>
+
+          {/* Specialty filter pills */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.13 }}
+            className="flex flex-wrap gap-2 mb-6"
+          >
+            {specialtyList.map(sp => (
+              <button
+                key={sp}
+                onClick={() => setSelectedSpecialty(sp)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                  selectedSpecialty === sp
+                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/25'
+                    : 'bg-white/[0.04] border-white/[0.1] text-slate-400 hover:text-white hover:border-white/20'
+                }`}
+              >
+                {sp !== ALL_SPECIALTIES && <Tag size={10} />}
+                {sp}
+              </button>
+            ))}
           </motion.div>
 
           {/* Template Grid */}
@@ -221,31 +271,33 @@ export default function TemplatesPage() {
             transition={{ delay: 0.15 }}
             className="grid md:grid-cols-2 lg:grid-cols-3 gap-4"
           >
-            {displayed.length === 0 ? (
-              <div className="col-span-3 text-center py-16 text-slate-500">
-                {activeTab === 'my'
-                  ? 'No templates added yet. Go to "All Templates" to add some.'
-                  : 'No templates match your search.'}
-              </div>
-            ) : (
-              displayed.map((template, index) => (
-                <TemplateCard
-                  key={template.id}
-                  template={template}
-                  index={index}
-                  isSelected={selectedTemplate === template.id}
-                  isAdded={addedIds.includes(template.id)}
-                  onToggleAdd={handleToggleAdd}
-                  onEdit={handleOpenEdit}
-                  onDelete={handleDelete}
-                  onShare={handleShare}
-                  onUse={handleUse}
-                />
-              ))
-            )}
+            <AnimatePresence mode="popLayout">
+              {displayed.length === 0 ? (
+                <div className="col-span-3 text-center py-16 text-slate-500">
+                  {activeTab === 'my'
+                    ? 'No templates added yet. Go to "All Templates" to add some.'
+                    : 'No templates match your search.'}
+                </div>
+              ) : (
+                displayed.map((template, index) => (
+                  <TemplateCard
+                    key={template.id}
+                    template={template}
+                    index={index}
+                    isSelected={selectedTemplate === template.id}
+                    isAdded={addedIds.includes(template.id)}
+                    onToggleAdd={handleToggleAdd}
+                    onEdit={handleOpenEdit}
+                    onDelete={handleDelete}
+                    onShare={handleShare}
+                    onUse={handleUse}
+                  />
+                ))
+              )}
+            </AnimatePresence>
           </motion.div>
 
-          {/* ── Create Modal ──────────────────────────────────────────────────── */}
+          {/* ── Create Modal ────────────────────────────────────────────────────── */}
           <Modal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} title="Create New Template">
             <div className="space-y-4">
               <Input label="Template Name" value={newForm.name}
@@ -253,7 +305,7 @@ export default function TemplatesPage() {
                 placeholder="e.g., Neurology Assessment" />
               <Input label="Description" value={newForm.description}
                 onChange={e => setNewForm(p => ({ ...p, description: e.target.value }))}
-                placeholder="Brief description" />
+                placeholder="Brief description of this template" />
               <Input label="Sections (comma-separated)" value={newForm.sections}
                 onChange={e => setNewForm(p => ({ ...p, sections: e.target.value }))}
                 placeholder="e.g., Chief Complaint, History, Exam, Plan" />
@@ -273,7 +325,7 @@ export default function TemplatesPage() {
             </div>
           </Modal>
 
-          {/* ── Edit Modal ────────────────────────────────────────────────────── */}
+          {/* ── Edit Modal ──────────────────────────────────────────────────────── */}
           <Modal isOpen={isEditOpen} onClose={() => { setIsEditOpen(false); setEditingTemplate(null); }}
             title={`Edit: ${editingTemplate?.name || ''}`}>
             <div className="space-y-4">
@@ -297,7 +349,9 @@ export default function TemplatesPage() {
                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                   onClick={handleSaveEdit} disabled={isSaving}
                   className="flex-1 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-violet-500/25 hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                  {isSaving ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving…</> : <><Pencil size={14} />Save Changes</>}
+                  {isSaving
+                    ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving…</>
+                    : <><Pencil size={14} />Save Changes</>}
                 </motion.button>
               </div>
             </div>
@@ -325,12 +379,15 @@ interface TemplateCardProps {
 function TemplateCard({ template, index, isSelected, isAdded, onToggleAdd, onEdit, onDelete, onShare, onUse }: TemplateCardProps) {
   const VISIBLE = 4;
   const extra = template.sections.length - VISIBLE;
+  const badgeClass = SPECIALTY_COLORS[template.specialty] ?? 'bg-slate-500/15 text-slate-300 border-slate-500/30';
 
   return (
     <motion.div
+      layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ delay: Math.min(index * 0.035, 0.4) }}
     >
       <div className={`group relative rounded-2xl p-5 h-full flex flex-col transition-all duration-300 ${
         isSelected
@@ -338,16 +395,24 @@ function TemplateCard({ template, index, isSelected, isAdded, onToggleAdd, onEdi
           : 'bg-white/[0.04] border border-white/[0.08] hover:border-white/20 hover:bg-white/[0.07] hover:-translate-y-1'
       }`}>
 
-        {/* Title row */}
-        <div className="flex items-start justify-between mb-3">
-          <h3 className="font-bold text-white text-base leading-snug pr-2">{template.name}</h3>
-          {/* Added badge */}
+        {/* Specialty badge + Added badge */}
+        <div className="flex items-center justify-between mb-2.5 flex-wrap gap-1.5">
+          <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${badgeClass}`}>
+            <Tag size={9} />
+            {template.specialty}
+          </span>
           {isAdded && (
             <span className="flex items-center gap-1 text-xs text-emerald-400 border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 rounded-full whitespace-nowrap flex-shrink-0">
               <CheckCircle2 size={11} /> Added
             </span>
           )}
         </div>
+
+        {/* Title */}
+        <h3 className="font-bold text-white text-base leading-snug mb-1.5">{template.name}</h3>
+
+        {/* Description */}
+        <p className="text-slate-500 text-xs leading-relaxed mb-3 line-clamp-2">{template.description}</p>
 
         {/* Sections list */}
         <ul className="space-y-1.5 flex-1 mb-4">
@@ -358,16 +423,19 @@ function TemplateCard({ template, index, isSelected, isAdded, onToggleAdd, onEdi
             </li>
           ))}
           {extra > 0 && (
-            <li className="text-xs text-slate-600 pl-5">+{extra} section{extra > 1 ? 's' : ''}</li>
+            <li className="text-xs text-slate-600 pl-5">+{extra} more section{extra > 1 ? 's' : ''}</li>
+          )}
+          {template.sections.length === 0 && (
+            <li className="text-xs text-slate-600 italic">No sections defined yet</li>
           )}
         </ul>
 
         {/* Divider */}
         <div className="border-t border-white/[0.07] mb-4" />
 
-        {/* Action buttons — exactly like Twofold */}
+        {/* Action buttons */}
         <div className="flex items-center gap-2">
-          {/* Remove / Add button */}
+          {/* Remove / Add */}
           <button
             onClick={() => onToggleAdd(template)}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg border text-sm font-semibold transition-all flex-1 justify-center ${
@@ -379,11 +447,11 @@ function TemplateCard({ template, index, isSelected, isAdded, onToggleAdd, onEdi
             {isAdded ? <><X size={14} /> Remove</> : <><Plus size={14} /> Add</>}
           </button>
 
-          {/* Edit — ALL templates editable */}
+          {/* Edit */}
           <button
             onClick={() => onEdit(template)}
             className="px-3 py-2 text-sm font-semibold text-slate-300 hover:text-white transition-colors"
-            title="Edit"
+            title="Edit template"
           >
             Edit
           </button>
@@ -392,7 +460,7 @@ function TemplateCard({ template, index, isSelected, isAdded, onToggleAdd, onEdi
           <button
             onClick={() => onShare(template)}
             className="p-2 hover:bg-white/10 rounded-lg transition-colors text-slate-500 hover:text-slate-300"
-            title="Share"
+            title="Copy template info"
           >
             <Share2 size={15} />
           </button>
@@ -402,7 +470,7 @@ function TemplateCard({ template, index, isSelected, isAdded, onToggleAdd, onEdi
             <button
               onClick={() => onDelete(template)}
               className="p-2 hover:bg-white/10 rounded-lg transition-colors text-slate-600 hover:text-red-400"
-              title="Delete"
+              title="Delete template"
             >
               <Trash2 size={15} />
             </button>
