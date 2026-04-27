@@ -42,17 +42,24 @@ export default function TemplatesPage() {
   const navigate = useNavigate();
   const { selectedTemplate, setTemplate } = useSettingsStore();
 
-  // "added" = templates the user has added to My Templates
-  // Initialised from localStorage so editor-saved templates appear instantly
+  // "added" = templates the user has added to My Templates.
+  // localStorage is the single source of truth after the first visit.
+  // On first visit (no stored key) we seed with all built-ins and save them.
+  // On subsequent visits we use exactly what's stored — never re-merge built-ins,
+  // so templates the user removed stay removed across page reloads and logins.
   const [addedIds, setAddedIds] = useState<string[]>(() => {
-    const builtIn = defaultTemplates.map(t => t.id);
     try {
-      const stored: string[] = JSON.parse(
-        localStorage.getItem('pronote_added_ids') ?? '[]'
-      );
-      return Array.from(new Set([...builtIn, ...stored]));
-    } catch {
+      const raw = localStorage.getItem('pronote_added_ids');
+      if (raw !== null) {
+        // User has already set their preference — respect it exactly as stored.
+        return JSON.parse(raw) as string[];
+      }
+      // First-ever visit: default to all built-ins and persist the choice.
+      const builtIn = defaultTemplates.map(t => t.id);
+      localStorage.setItem('pronote_added_ids', JSON.stringify(builtIn));
       return builtIn;
+    } catch {
+      return defaultTemplates.map(t => t.id);
     }
   });
 
