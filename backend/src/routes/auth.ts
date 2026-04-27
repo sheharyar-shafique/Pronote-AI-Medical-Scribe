@@ -60,7 +60,7 @@ router.post('/signup', async (req, res: Response, next) => {
         specialty: data.specialty || 'General Medicine',
         role: data.email.includes('admin') ? 'admin' : 'clinician',
         subscription_status: 'trial',
-        subscription_plan: 'practice',
+        subscription_plan: null,
         trial_ends_at: trialEndsAt.toISOString(),
       })
       .select()
@@ -617,12 +617,12 @@ router.post('/google', async (req, res: Response, next) => {
         .from('users')
         .insert({
           email: payload.email.toLowerCase(),
-          password_hash: '',            // No password for Google users
+          password_hash: '',
           name: payload.name || payload.email.split('@')[0],
           specialty: 'General Medicine',
           role: 'clinician',
           subscription_status: 'trial',
-          subscription_plan: 'practice',
+          subscription_plan: null,
           trial_ends_at: trialEndsAt.toISOString(),
           avatar_url: payload.picture || null,
           google_id: payload.sub,
