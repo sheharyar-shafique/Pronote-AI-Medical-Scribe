@@ -371,7 +371,7 @@ export const audioApi = {
   },
 
   generateNote: async (transcription: string, template: string, patientName?: string) => {
-    return apiFetch<{ content: NoteContent; template: string }>('/audio/generate-note', {
+    return apiFetch<{ content: NoteContent; template: string; source: 'ai' | 'mock' }>('/audio/generate-note', {
       method: 'POST',
       body: JSON.stringify({ transcription, template, patientName }),
     });

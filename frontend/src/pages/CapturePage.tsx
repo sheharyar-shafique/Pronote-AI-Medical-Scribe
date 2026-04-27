@@ -184,8 +184,16 @@ export default function CapturePage() {
           selectedTemplate,
           patientName || undefined
         );
-        
+
         toast.dismiss('processing');
+
+        // Warn if server returned mock/placeholder content instead of real AI
+        if (noteResult.source === 'mock') {
+          toast('⚠️ Note generated with placeholder data — AI key not configured on server.', {
+            duration: 6000,
+            style: { background: '#92400e', color: '#fef3c7' },
+          });
+        }
         
         // Step 4: Create the note in the database
         const createdNote = await notesApi.create({

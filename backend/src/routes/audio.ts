@@ -200,54 +200,94 @@ router.post('/generate-note', async (req: AuthenticatedRequest, res: Response, n
     }
 
     let noteContent: Record<string, string>;
+    let source: 'ai' | 'mock' = 'ai';
 
     if (openai) {
-      // Use GPT to generate structured clinical note
+      // ── Real AI path ──────────────────────────────────────────────────────
       const systemPrompt = getSystemPromptForTemplate(template);
-      
+      const userMessage = `Generate a clinical note from this transcription:\n\n${transcription}`;
+
+      let lastError: Error | null = null;
+
+      // Try GPT-4o first
       try {
-        // Try with gpt-4o first
         const response = await openai.chat.completions.create({
           model: 'gpt-4o',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Generate a clinical note from this transcription:\n\n${transcription}` },
+            { role: 'user', content: userMessage },
           ],
           response_format: { type: 'json_object' },
+          temperature: 0.3,
         });
-
         noteContent = JSON.parse(response.choices[0].message.content || '{}');
-      } catch (openaiError: any) {
-        console.error('GPT-4o error, trying gpt-3.5-turbo:', openaiError.message);
-        
-        // Fallback to gpt-3.5-turbo
+        console.log(`✅ GPT-4o note generated for template: ${template}`);
+      } catch (gpt4oError: any) {
+        console.error('GPT-4o failed, trying gpt-4o-mini:', gpt4oError.message);
+        lastError = gpt4oError;
+
+        // Fallback to gpt-4o-mini
         try {
           const response = await openai.chat.completions.create({
-            model: 'gpt-3.5-turbo',
+            model: 'gpt-4o-mini',
             messages: [
               { role: 'system', content: systemPrompt },
-              { role: 'user', content: `Generate a clinical note from this transcription. Return valid JSON:\n\n${transcription}` },
+              { role: 'user', content: userMessage + ' Return valid JSON only.' },
             ],
+            response_format: { type: 'json_object' },
+            temperature: 0.3,
           });
+          const raw = response.choices[0].message.content || '{}';
+          noteContent = JSON.parse(raw);
+          console.log(`✅ GPT-4o-mini note generated for template: ${template}`);
+          lastError = null;
+        } catch (miniError: any) {
+          console.error('GPT-4o-mini also failed:', miniError.message);
+          lastError = miniError;
 
-          const content = response.choices[0].message.content || '{}';
-          // Try to parse JSON, handle potential markdown wrapping
-          const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/\{[\s\S]*\}/);
-          noteContent = JSON.parse(jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : content);
-        } catch (fallbackError: any) {
-          console.error('GPT-3.5-turbo also failed:', fallbackError.message);
-          // Final fallback to mock content
-          noteContent = generateMockNoteContent(template, patientName);
+          // Last resort: gpt-3.5-turbo (no json_object mode — parse manually)
+          try {
+            const response = await openai.chat.completions.create({
+              model: 'gpt-3.5-turbo',
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userMessage + ' Return ONLY valid JSON, no markdown.' },
+              ],
+              temperature: 0.3,
+            });
+            const raw = response.choices[0].message.content || '{}';
+            const match = raw.match(/```json\s*([\s\S]*?)\s*```/) || raw.match(/(\{[\s\S]*\})/);
+            noteContent = JSON.parse(match ? (match[1] || match[0]) : raw);
+            console.log(`✅ GPT-3.5-turbo note generated for template: ${template}`);
+            lastError = null;
+          } catch (gpt35Error: any) {
+            console.error('All GPT models failed:', gpt35Error.message);
+            lastError = gpt35Error;
+          }
         }
       }
+
+      // If ALL models failed — throw a proper error. Do NOT silently use mock.
+      if (lastError) {
+        const msg = (lastError as any).status === 429
+          ? 'AI service rate limit reached. Please wait a moment and try again.'
+          : (lastError as any).status === 401
+          ? 'AI service authentication error — please contact support.'
+          : 'AI note generation failed. Please try again.';
+        throw new AppError(msg, 503);
+      }
     } else {
-      // Generate mock note content
+      // ── Development / no API key ──────────────────────────────────────────
+      // Only use mock data when no OpenAI key is configured (local dev)
+      console.warn('⚠️  No OpenAI key — returning mock note content (dev mode)');
       noteContent = generateMockNoteContent(template, patientName);
+      source = 'mock';
     }
 
     res.json({
-      content: noteContent,
+      content: noteContent!,
       template,
+      source, // 'ai' = real GPT output, 'mock' = dev placeholder
     });
   } catch (error) {
     next(error);
