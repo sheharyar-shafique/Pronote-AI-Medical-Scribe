@@ -43,10 +43,26 @@ export default function TemplatesPage() {
   const { selectedTemplate, setTemplate } = useSettingsStore();
 
   // "added" = templates the user has added to My Templates
-  const [addedIds, setAddedIds] = useState<string[]>(
-    defaultTemplates.map(t => t.id) // all built-ins added by default
-  );
-  const [customTemplates, setCustomTemplates] = useState<Template[]>([]);
+  // Initialised from localStorage so editor-saved templates appear instantly
+  const [addedIds, setAddedIds] = useState<string[]>(() => {
+    const builtIn = defaultTemplates.map(t => t.id);
+    try {
+      const stored: string[] = JSON.parse(
+        localStorage.getItem('pronote_added_ids') ?? '[]'
+      );
+      return Array.from(new Set([...builtIn, ...stored]));
+    } catch {
+      return builtIn;
+    }
+  });
+
+  const [customTemplates, setCustomTemplates] = useState<Template[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('pronote_custom_templates') ?? '[]');
+    } catch {
+      return [];
+    }
+  });
   const [activeTab, setActiveTab] = useState<'my' | 'all'>('my');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState(ALL_SPECIALTIES);
@@ -82,11 +98,17 @@ export default function TemplatesPage() {
       isCustom: true,
       isDefault: false,
     };
-    setCustomTemplates(prev => [...prev, t]);
-    setAddedIds(prev => [...prev, t.id]);
+    const nextTemplates = [...customTemplates, t];
+    const nextAdded = [...addedIds, t.id];
+    setCustomTemplates(nextTemplates);
+    setAddedIds(nextAdded);
+    try {
+      localStorage.setItem('pronote_custom_templates', JSON.stringify(nextTemplates));
+      localStorage.setItem('pronote_added_ids', JSON.stringify(nextAdded));
+    } catch {}
     setIsCreateOpen(false);
     setNewForm({ name: '', description: '', sections: '', specialty: '' });
-    toast.success('Template created!');
+    toast.success('Template created and added to My Templates!');
   };
 
   // ── Edit — navigate to full editor page ─────────────────────────────────────
@@ -97,10 +119,14 @@ export default function TemplatesPage() {
   // ── Add / Remove ─────────────────────────────────────────────────────────────
   const handleToggleAdd = (t: Template) => {
     if (addedIds.includes(t.id)) {
-      setAddedIds(prev => prev.filter(id => id !== t.id));
+      const next = addedIds.filter(id => id !== t.id);
+      setAddedIds(next);
+      try { localStorage.setItem('pronote_added_ids', JSON.stringify(next)); } catch {}
       toast.success(`"${t.name}" removed from My Templates`);
     } else {
-      setAddedIds(prev => [...prev, t.id]);
+      const next = [...addedIds, t.id];
+      setAddedIds(next);
+      try { localStorage.setItem('pronote_added_ids', JSON.stringify(next)); } catch {}
       toast.success(`"${t.name}" added to My Templates`);
     }
   };
@@ -113,8 +139,14 @@ export default function TemplatesPage() {
         const dbId = (t as Template & { dbId?: string }).dbId;
         await templatesApi.delete(dbId || t.id);
       }
-      setCustomTemplates(prev => prev.filter(c => c.id !== t.id));
-      setAddedIds(prev => prev.filter(id => id !== t.id));
+      const nextTemplates = customTemplates.filter(c => c.id !== t.id);
+      const nextAdded = addedIds.filter(id => id !== t.id);
+      setCustomTemplates(nextTemplates);
+      setAddedIds(nextAdded);
+      try {
+        localStorage.setItem('pronote_custom_templates', JSON.stringify(nextTemplates));
+        localStorage.setItem('pronote_added_ids', JSON.stringify(nextAdded));
+      } catch {}
       toast.success('Template deleted');
     } catch {
       toast.error('Failed to delete template');

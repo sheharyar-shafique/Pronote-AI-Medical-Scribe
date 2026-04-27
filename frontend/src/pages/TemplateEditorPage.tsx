@@ -21,6 +21,7 @@ import {
 import { Sidebar } from '../components/layout';
 import { templates as defaultTemplates } from '../data';
 import toast from 'react-hot-toast';
+import type { Template, NoteTemplate } from '../types';
 
 // ── Rich section type used inside the editor ──────────────────────────────────
 interface EditorSection {
@@ -43,18 +44,28 @@ const DEFAULT_CONTENT: Record<string, string> = {
     'Combine subjective and objective data to list detailed diagnoses.\nFor each diagnosis - begin with the diagnosis title, followed by its assessment.',
   Plan: 'For each diagnosis listed in the assessment, provide a detailed plan.',
   'Chief Complaint': 'The primary reason the patient is seeking care today.',
-  'HPI': "A detailed narrative of the patient's present illness.",
+  HPI: "A detailed narrative of the patient's present illness.",
   'Review of Systems': 'Systematic review of body systems relevant to the chief complaint.',
   'Physical Exam': 'Documented findings from the physical examination.',
   'Medical Decision Making': 'Clinical reasoning supporting the diagnosis and treatment plan.',
   'Follow-Up': 'Instructions for follow-up care and next steps.',
+  'Patient Instructions':
+    'Compose a detailed and well-structured formal email from the doctor to the patient, summarizing the consultation and providing comprehensive care and treatment instructions.',
+};
+
+// Sections that default to paragraph styling (everything else defaults to bullet)
+const DEFAULT_STYLING: Record<string, 'paragraph' | 'bullet'> = {
+  Subjective: 'paragraph',
+  'Chief Complaint': 'paragraph',
+  HPI: 'paragraph',
+  'Medical Decision Making': 'paragraph',
 };
 
 const makeSection = (title: string, index: number): EditorSection => ({
   id: `section-${index}-${Date.now() + index}`,
   title,
   verbosity: 'detailed',
-  styling: index === 0 ? 'paragraph' : 'bullet',
+  styling: DEFAULT_STYLING[title] ?? 'bullet',
   content: DEFAULT_CONTENT[title] ?? '',
   stylingInstructions: '',
   includeInCopyAll: true,
@@ -123,9 +134,43 @@ export default function TemplateEditorPage() {
       return;
     }
     setIsSaving(true);
-    await new Promise(r => setTimeout(r, 700)); // simulate async save
+    await new Promise(r => setTimeout(r, 600));
+
+    // Build the saved template object
+    const saved: Template = {
+      id: `custom-${Date.now()}` as NoteTemplate,
+      name: templateName.trim(),
+      description: `Custom version based on ${template?.name ?? 'a template'}`,
+      sections: sections.map(s => s.title),
+      specialty: template?.specialty ?? 'Custom',
+      isCustom: true,
+      isDefault: false,
+    };
+
+    // Persist to localStorage — TemplatesPage reads this on mount
+    try {
+      const prevTemplates: Template[] = JSON.parse(
+        localStorage.getItem('pronote_custom_templates') ?? '[]'
+      );
+      localStorage.setItem(
+        'pronote_custom_templates',
+        JSON.stringify([...prevTemplates, saved])
+      );
+      const prevAdded: string[] = JSON.parse(
+        localStorage.getItem('pronote_added_ids') ?? '[]'
+      );
+      if (!prevAdded.includes(saved.id)) {
+        localStorage.setItem(
+          'pronote_added_ids',
+          JSON.stringify([...prevAdded, saved.id])
+        );
+      }
+    } catch {
+      // localStorage unavailable — silently continue
+    }
+
     setIsSaving(false);
-    toast.success('Template saved successfully!');
+    toast.success(`"${saved.name}" saved and added to My Templates!`);
     navigate('/templates');
   };
 
