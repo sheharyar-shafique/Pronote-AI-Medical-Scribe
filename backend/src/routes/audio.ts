@@ -316,40 +316,93 @@ router.delete('/files/:id', async (req: AuthenticatedRequest, res: Response, nex
 // Helper functions
 function getSystemPromptForTemplate(template: string): string {
   const prompts: Record<string, string> = {
-    soap: `You are a medical documentation assistant. Generate a SOAP note from the given transcription. 
-Return a JSON object with these fields: subjective, objective, assessment, plan. 
-Use professional medical terminology and be thorough but concise.`,
-    
+    soap: `You are a medical documentation assistant. Generate a SOAP note from the given transcription.
+Return a JSON object with these REQUIRED fields: subjective, objective, assessment, plan, instructions.
+- subjective: Patient's reported symptoms and history
+- objective: Physical examination findings and vitals
+- assessment: Diagnosis and clinical impression
+- plan: Treatment plan including medications, orders, and follow-up
+- instructions: Specific patient instructions (medications to take, activity restrictions, warning signs to watch for, when to return)
+Use professional medical terminology. The 'instructions' field is MANDATORY — always include clear patient education and discharge instructions.`,
+
     psychiatry: `You are a psychiatric documentation assistant. Generate a psychiatric evaluation note.
-Return a JSON object with these fields: chiefComplaint, historyOfPresentIllness, mentalStatusExam, assessment, plan.
-Include relevant mental status examination findings including appearance, behavior, mood, affect, thought process, thought content, cognition, insight, and judgment.`,
-    
+Return a JSON object with these REQUIRED fields: chiefComplaint, historyOfPresentIllness, mentalStatusExam, assessment, plan, instructions.
+- chiefComplaint: Presenting concern
+- historyOfPresentIllness: Detailed psychiatric history and current episode
+- mentalStatusExam: Appearance, behavior, mood, affect, thought process, thought content, cognition, insight, judgment
+- assessment: Psychiatric diagnosis and clinical impression
+- plan: Medication management, therapy referrals, safety planning
+- instructions: Patient instructions including medication guidance, crisis resources, and next steps
+The 'instructions' field is MANDATORY — always provide clear patient directions.`,
+
     therapy: `You are a therapy documentation assistant. Generate a therapy session note.
-Return a JSON object with these fields: sessionSummary, clientPresentation, interventionsUsed, clientResponse, progressNotes, plan.
-Focus on therapeutic interventions, client engagement, and progress toward treatment goals.`,
+Return a JSON object with these REQUIRED fields: sessionSummary, clientPresentation, interventionsUsed, clientResponse, progressNotes, plan, instructions.
+- sessionSummary: Overview of session content
+- clientPresentation: Client's mental/emotional state at session
+- interventionsUsed: Therapeutic techniques applied
+- clientResponse: Client's engagement and response
+- progressNotes: Progress toward treatment goals
+- plan: Next steps and upcoming session focus
+- instructions: Between-session homework, skills to practice, and self-care recommendations
+The 'instructions' field is MANDATORY.`,
 
     pediatrics: `You are a pediatric documentation assistant. Generate a pediatric clinical note.
-Return a JSON object with these fields: chiefComplaint, historyOfPresentIllness, developmentalHistory, physicalExam, assessment, plan.
-Include age-appropriate developmental milestones, growth parameters, and immunization status when relevant.`,
+Return a JSON object with these REQUIRED fields: chiefComplaint, historyOfPresentIllness, developmentalHistory, physicalExam, assessment, plan, instructions.
+- chiefComplaint: Presenting symptom or concern
+- historyOfPresentIllness: Symptom timeline and relevant history
+- developmentalHistory: Developmental milestones, growth, immunizations
+- physicalExam: Age-appropriate examination findings
+- assessment: Diagnosis and clinical impression
+- plan: Treatment plan and follow-up
+- instructions: Parent/caregiver instructions including medication dosing, activity restrictions, warning signs requiring return visit
+The 'instructions' field is MANDATORY — always include clear caregiver guidance.`,
 
     cardiology: `You are a cardiology documentation assistant. Generate a cardiology consultation note.
-Return a JSON object with these fields: chiefComplaint, cardiacHistory, physicalExam, diagnosticFindings, assessment, plan.
-Include relevant cardiac risk factors, ECG findings, and cardiovascular examination details.`,
+Return a JSON object with these REQUIRED fields: chiefComplaint, cardiacHistory, physicalExam, diagnosticFindings, assessment, plan, instructions.
+- chiefComplaint: Presenting cardiac symptoms
+- cardiacHistory: Cardiac risk factors and history
+- physicalExam: Cardiovascular examination findings
+- diagnosticFindings: ECG, imaging, lab results
+- assessment: Cardiac diagnosis and impression
+- plan: Treatment, medications, procedures, and follow-up
+- instructions: Patient instructions including activity level, diet, medication adherence, warning symptoms requiring emergency care
+The 'instructions' field is MANDATORY.`,
 
     dermatology: `You are a dermatology documentation assistant. Generate a dermatology consultation note.
-Return a JSON object with these fields: chiefComplaint, lesionDescription, distribution, associatedSymptoms, assessment, plan.
-Include detailed description of skin findings using proper dermatological terminology (morphology, color, size, distribution).`,
+Return a JSON object with these REQUIRED fields: chiefComplaint, lesionDescription, distribution, associatedSymptoms, assessment, plan, instructions.
+- chiefComplaint: Presenting skin concern
+- lesionDescription: Morphology, color, size, surface characteristics
+- distribution: Location and pattern of skin findings
+- associatedSymptoms: Pruritus, pain, or other symptoms
+- assessment: Dermatologic diagnosis
+- plan: Topical/systemic therapy and follow-up
+- instructions: Skincare instructions, medication application directions, sun protection, follow-up timeline, warning signs
+The 'instructions' field is MANDATORY.`,
 
     orthopedics: `You are an orthopedic documentation assistant. Generate an orthopedic consultation note.
-Return a JSON object with these fields: chiefComplaint, injuryMechanism, physicalExam, imagingFindings, assessment, plan.
-Include range of motion, strength testing, neurovascular status, and relevant orthopedic tests.`,
+Return a JSON object with these REQUIRED fields: chiefComplaint, injuryMechanism, physicalExam, imagingFindings, assessment, plan, instructions.
+- chiefComplaint: Presenting musculoskeletal complaint
+- injuryMechanism: Mechanism of injury or onset
+- physicalExam: ROM, strength, neurovascular, special tests
+- imagingFindings: X-ray/MRI findings
+- assessment: Orthopedic diagnosis
+- plan: Treatment including immobilization, PT, surgery if applicable
+- instructions: Activity restrictions, weight-bearing status, icing/elevation, pain management, when to seek emergency care
+The 'instructions' field is MANDATORY.`,
 
     custom: `You are a clinical documentation assistant. Generate a comprehensive clinical note from the transcription.
-Return a JSON object with these fields: subjective, objective, assessment, plan, additionalNotes.
-Adapt the note structure to best fit the clinical content provided.`,
-    
+Return a JSON object with these REQUIRED fields: subjective, objective, assessment, plan, instructions, additionalNotes.
+- subjective: Patient history and reported symptoms
+- objective: Examination findings
+- assessment: Diagnosis and impression
+- plan: Treatment and follow-up plan
+- instructions: Clear patient instructions for medications, activities, follow-up, and warning signs
+- additionalNotes: Any other relevant clinical information
+The 'instructions' field is MANDATORY — always include patient education and guidance.`,
+
     default: `You are a clinical documentation assistant. Generate a clinical note from the transcription.
-Return a JSON object with fields appropriate for the clinical encounter: subjective, objective, assessment, plan.`,
+Return a JSON object with these REQUIRED fields: subjective, objective, assessment, plan, instructions.
+The 'instructions' field is MANDATORY — always include specific patient instructions for medications, activity, follow-up, and warning signs.`,
   };
 
   return prompts[template.toLowerCase()] || prompts.default;
@@ -368,13 +421,14 @@ Plan: Continue current medications, follow up in three months, continue lifestyl
 
 function generateMockNoteContent(template: string, patientName: string): Record<string, string> {
   const name = patientName || 'Patient';
-  
+
   const contents: Record<string, Record<string, string>> = {
     soap: {
       subjective: `${name} presents for follow-up. Reports compliance with treatment plan. No new complaints at this time.`,
       objective: `Vital signs within normal limits. Physical examination unremarkable. Patient appears well.`,
       assessment: `Condition stable on current management. No acute issues identified.`,
       plan: `Continue current treatment. Follow up as scheduled. Return precautions discussed.`,
+      instructions: `Take all medications as prescribed. Follow the low-sodium diet and exercise recommendations discussed today. Monitor blood pressure daily and record readings. Return to the clinic in 3 months or sooner if you experience chest pain, severe headache, shortness of breath, or dizziness. Call the office if you have any questions about your medications.`,
     },
     psychiatry: {
       chiefComplaint: `${name} presents for psychiatric evaluation.`,
@@ -382,6 +436,7 @@ function generateMockNoteContent(template: string, patientName: string): Record<
       mentalStatusExam: `Alert and oriented x4. Appearance: Well-groomed. Behavior: Cooperative. Mood: "Okay". Affect: Appropriate, full range. Thought Process: Linear, goal-directed. Thought Content: No SI/HI, no delusions. Cognition: Intact. Insight: Good. Judgment: Good.`,
       assessment: `Clinical assessment based on evaluation findings.`,
       plan: `Treatment recommendations and follow-up plan.`,
+      instructions: `Take prescribed medications daily as directed — do not stop without consulting your provider. Attend all scheduled therapy appointments. If you experience thoughts of harming yourself or others, call 988 (Suicide & Crisis Lifeline) or go to the nearest emergency room immediately. Follow up in 4 weeks or sooner if symptoms worsen.`,
     },
     therapy: {
       sessionSummary: `Therapy session with ${name}. Topics discussed include current stressors and coping strategies.`,
@@ -390,6 +445,7 @@ function generateMockNoteContent(template: string, patientName: string): Record<
       clientResponse: `Patient demonstrated good insight and receptiveness to interventions.`,
       progressNotes: `Progress toward treatment goals noted. Areas for continued work identified.`,
       plan: `Continue weekly sessions. Homework assigned. Skills practice between sessions.`,
+      instructions: `Practice the breathing exercises daily for 5–10 minutes. Complete the thought journal between sessions. Continue behavioral activation activities — aim for at least one enjoyable activity per day. If you feel overwhelmed, use the grounding techniques we practiced. Contact the office or crisis line if you feel unsafe.`,
     },
     pediatrics: {
       chiefComplaint: `${name} presents for pediatric evaluation.`,
@@ -398,6 +454,7 @@ function generateMockNoteContent(template: string, patientName: string): Record<
       physicalExam: `General: Active, alert child in no acute distress. HEENT: Normal. Lungs: Clear. Heart: RRR, no murmurs. Abdomen: Soft, non-tender. Extremities: Normal range of motion.`,
       assessment: `Clinical assessment based on age-appropriate evaluation.`,
       plan: `Treatment plan and anticipatory guidance provided. Follow-up as indicated.`,
+      instructions: `Give all medications exactly as prescribed — do not skip doses. Encourage fluids and rest. Keep your child home from school until fever-free for 24 hours without medication. Return to the ER immediately if your child develops difficulty breathing, persistent high fever (>104°F), severe vomiting, or seems very unwell. Follow up in 2–3 days or as directed.`,
     },
     cardiology: {
       chiefComplaint: `${name} presents for cardiology consultation.`,
@@ -406,6 +463,7 @@ function generateMockNoteContent(template: string, patientName: string): Record<
       diagnosticFindings: `ECG: Normal sinus rhythm. Echocardiogram findings pending/reviewed.`,
       assessment: `Cardiac assessment based on clinical evaluation and diagnostics.`,
       plan: `Cardiology recommendations and follow-up plan.`,
+      instructions: `Take cardiac medications at the same time every day — never skip or double doses. Follow a heart-healthy, low-sodium diet. Limit physical exertion until cleared. Call 911 immediately or go to the ER for chest pain, pressure, palpitations, severe shortness of breath, or fainting. Follow up with cardiology in 4–6 weeks.`,
     },
     dermatology: {
       chiefComplaint: `${name} presents for dermatology evaluation.`,
@@ -414,6 +472,7 @@ function generateMockNoteContent(template: string, patientName: string): Record<
       associatedSymptoms: `Pruritus, pain, or other associated symptoms noted.`,
       assessment: `Dermatologic diagnosis based on clinical presentation.`,
       plan: `Treatment recommendations including topical/systemic therapy. Follow-up for response to treatment.`,
+      instructions: `Apply the prescribed topical medication to affected areas as directed — avoid eyes and mucous membranes. Do not scratch or pick at lesions. Use gentle, fragrance-free soap and moisturizer daily. Apply broad-spectrum SPF 30+ sunscreen when outdoors. Return if the rash spreads, becomes infected (increasing redness, warmth, pus), or does not improve in 2–4 weeks.`,
     },
     orthopedics: {
       chiefComplaint: `${name} presents for orthopedic evaluation.`,
@@ -422,12 +481,14 @@ function generateMockNoteContent(template: string, patientName: string): Record<
       imagingFindings: `X-ray/MRI findings reviewed or pending.`,
       assessment: `Orthopedic diagnosis and clinical impression.`,
       plan: `Treatment plan including activity modifications, physical therapy, and follow-up.`,
+      instructions: `Rest and protect the injured area — avoid activities that cause pain. Apply ice for 20 minutes several times daily for the first 48–72 hours. Keep the extremity elevated when possible. Take prescribed pain medications as directed with food. Do not bear weight on the injured limb unless cleared. Go to the ER immediately if you develop increasing numbness, inability to move the area, severe swelling, or the limb changes color. Follow up in 1–2 weeks.`,
     },
     custom: {
       subjective: `${name} presents for evaluation. Chief complaint and history documented.`,
       objective: `Physical examination and relevant findings documented.`,
       assessment: `Clinical assessment and diagnosis.`,
       plan: `Treatment plan and follow-up recommendations.`,
+      instructions: `Follow all treatment instructions as discussed. Take medications as prescribed. Attend all follow-up appointments. Contact the office with any questions or concerns. Go to the emergency room or call 911 if you experience a medical emergency or sudden worsening of symptoms.`,
       additionalNotes: `Additional relevant clinical information.`,
     },
   };
