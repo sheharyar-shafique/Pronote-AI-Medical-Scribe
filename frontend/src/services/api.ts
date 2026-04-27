@@ -278,6 +278,21 @@ export const templatesApi = {
       method: 'DELETE',
     });
   },
+
+  /** Fetch the user's My Templates selections from the server (cross-device) */
+  getPreferences: async () => {
+    return apiFetch<{
+      preferences: { addedIds: string[]; customTemplates: CustomTemplate[] } | null;
+    }>('/templates/preferences');
+  },
+
+  /** Persist the user's My Templates selections to the server */
+  savePreferences: async (addedIds: string[], customTemplates: CustomTemplate[]) => {
+    return apiFetch<{ message: string }>('/templates/preferences', {
+      method: 'PUT',
+      body: JSON.stringify({ addedIds, customTemplates }),
+    });
+  },
 };
 
 // Teams API
@@ -664,6 +679,22 @@ export interface CreateTemplateData {
   templateType: string;
   sections: string[];
   specialty?: string;
+}
+
+/** Mirrors the shape stored in pronote_custom_templates / template_preferences */
+export interface CustomTemplate {
+  id: string;
+  name: string;
+  description: string;
+  specialty: string;
+  sections: {
+    id: string;
+    name: string;
+    verbosity: string;
+    format: string;
+    included: boolean;
+  }[];
+  isCustom?: boolean;
 }
 
 export interface TeamMember {

@@ -19,7 +19,7 @@ import { Sidebar } from '../components/layout';
 import { Card, Select } from '../components/ui';
 import { useRecordingStore, useNotesStore, useSettingsStore } from '../store';
 import { templates as allBuiltInTemplates } from '../data';
-import { audioApi, notesApi } from '../services/api';
+import { audioApi, notesApi, templatesApi } from '../services/api';
 import toast from 'react-hot-toast';
 import type { ClinicalNote, Template } from '../types';
 
@@ -60,23 +60,33 @@ export default function CapturePage() {
   const remainingSeconds = Math.max(0, MIN_RECORDING_SECONDS - session.duration);
   const minProgress = Math.min(100, (session.duration / MIN_RECORDING_SECONDS) * 100);
 
-  // ── Build My Templates list from localStorage (mirrors TemplatesPage logic) ──
-  const myTemplates: Template[] = (() => {
+  // ── My Templates: start from localStorage, then sync from server ─────────────
+  const [myTemplates, setMyTemplates] = useState<Template[]>(() => {
     try {
       const raw = localStorage.getItem('pronote_added_ids');
-      const addedIds: string[] = raw
-        ? JSON.parse(raw)
-        : allBuiltInTemplates.map(t => t.id); // first visit fallback
-
+      const addedIds: string[] = raw ? JSON.parse(raw) : allBuiltInTemplates.map(t => t.id);
       const customRaw = localStorage.getItem('pronote_custom_templates');
-      const customTemplates: Template[] = customRaw ? JSON.parse(customRaw) : [];
-
-      const combined = [...allBuiltInTemplates, ...customTemplates];
-      return combined.filter(t => addedIds.includes(t.id));
+      const customs: Template[] = customRaw ? JSON.parse(customRaw) : [];
+      return [...allBuiltInTemplates, ...customs].filter(t => addedIds.includes(t.id));
     } catch {
-      return allBuiltInTemplates; // safe fallback
+      return allBuiltInTemplates;
     }
-  })();
+  });
+
+  useEffect(() => {
+    templatesApi.getPreferences().then(res => {
+      if (!res.preferences) return;
+      const { addedIds, customTemplates: serverCustom } = res.preferences;
+      const customs = serverCustom as unknown as Template[];
+      const combined = [...allBuiltInTemplates, ...customs].filter(t => addedIds.includes(t.id));
+      setMyTemplates(combined);
+      // Also write back to localStorage so it stays fast next load
+      try {
+        localStorage.setItem('pronote_added_ids', JSON.stringify(addedIds));
+        localStorage.setItem('pronote_custom_templates', JSON.stringify(serverCustom));
+      } catch {}
+    }).catch(() => {});
+  }, []);
 
   // Fall back to first My Template if the selected one isn't in My Templates
   const resolvedTemplate =

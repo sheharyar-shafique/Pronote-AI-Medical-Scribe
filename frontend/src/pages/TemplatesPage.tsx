@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -50,11 +50,7 @@ export default function TemplatesPage() {
   const [addedIds, setAddedIds] = useState<string[]>(() => {
     try {
       const raw = localStorage.getItem('pronote_added_ids');
-      if (raw !== null) {
-        // User has already set their preference — respect it exactly as stored.
-        return JSON.parse(raw) as string[];
-      }
-      // First-ever visit: default to all built-ins and persist the choice.
+      if (raw !== null) return JSON.parse(raw) as string[];
       const builtIn = defaultTemplates.map(t => t.id);
       localStorage.setItem('pronote_added_ids', JSON.stringify(builtIn));
       return builtIn;
@@ -70,6 +66,32 @@ export default function TemplatesPage() {
       return [];
     }
   });
+
+  // ── Server sync: load on mount, overrides localStorage with server data ──────
+  useEffect(() => {
+    templatesApi.getPreferences().then(res => {
+      if (!res.preferences) return; // no server data yet — keep localStorage values
+      const { addedIds: serverIds, customTemplates: serverCustom } = res.preferences;
+      // Server is authoritative — update state + localStorage
+      setAddedIds(serverIds);
+      setCustomTemplates(serverCustom as unknown as Template[]);
+      try {
+        localStorage.setItem('pronote_added_ids', JSON.stringify(serverIds));
+        localStorage.setItem('pronote_custom_templates', JSON.stringify(serverCustom));
+      } catch {}
+    }).catch(() => {
+      // Server unavailable — silently use localStorage (already in state)
+    });
+  }, []);
+
+  /** Persist to both localStorage (fast) and server (cross-device) */
+  const persistPreferences = (ids: string[], customs: Template[]) => {
+    try {
+      localStorage.setItem('pronote_added_ids', JSON.stringify(ids));
+      localStorage.setItem('pronote_custom_templates', JSON.stringify(customs));
+    } catch {}
+    templatesApi.savePreferences(ids, customs as unknown as import('../services/api').CustomTemplate[]).catch(() => {});
+  };
   const [activeTab, setActiveTab] = useState<'my' | 'all'>('my');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState(ALL_SPECIALTIES);
@@ -110,10 +132,7 @@ export default function TemplatesPage() {
     const nextAdded = [...addedIds, t.id];
     setCustomTemplates(nextTemplates);
     setAddedIds(nextAdded);
-    try {
-      localStorage.setItem('pronote_custom_templates', JSON.stringify(nextTemplates));
-      localStorage.setItem('pronote_added_ids', JSON.stringify(nextAdded));
-    } catch {}
+    persistPreferences(nextAdded, nextTemplates);
     setIsCreateOpen(false);
     setNewForm({ name: '', description: '', sections: '', specialty: '' });
     toast.success('Template created and added to My Templates!');
@@ -129,12 +148,12 @@ export default function TemplatesPage() {
     if (addedIds.includes(t.id)) {
       const next = addedIds.filter(id => id !== t.id);
       setAddedIds(next);
-      try { localStorage.setItem('pronote_added_ids', JSON.stringify(next)); } catch {}
+      persistPreferences(next, customTemplates);
       toast.success(`"${t.name}" removed from My Templates`);
     } else {
       const next = [...addedIds, t.id];
       setAddedIds(next);
-      try { localStorage.setItem('pronote_added_ids', JSON.stringify(next)); } catch {}
+      persistPreferences(next, customTemplates);
       toast.success(`"${t.name}" added to My Templates`);
     }
   };
@@ -151,10 +170,7 @@ export default function TemplatesPage() {
       const nextAdded = addedIds.filter(id => id !== t.id);
       setCustomTemplates(nextTemplates);
       setAddedIds(nextAdded);
-      try {
-        localStorage.setItem('pronote_custom_templates', JSON.stringify(nextTemplates));
-        localStorage.setItem('pronote_added_ids', JSON.stringify(nextAdded));
-      } catch {}
+      persistPreferences(nextAdded, nextTemplates);
       toast.success('Template deleted');
     } catch {
       toast.error('Failed to delete template');
