@@ -7,7 +7,7 @@ export const templates: Template[] = [
     id: 'soap',
     name: 'SOAP Note',
     description: 'Standard Subjective, Objective, Assessment, Plan format used across all specialties.',
-    sections: ['Subjective', 'Objective', 'Assessment', 'Plan'],
+    sections: ['Subjective', 'Objective', 'Assessment', 'Plan', 'Patient Instructions'],
     specialty: 'General',
     isDefault: true,
   },
