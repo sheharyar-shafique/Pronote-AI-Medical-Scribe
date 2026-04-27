@@ -74,12 +74,13 @@ export default function TemplatesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState(ALL_SPECIALTIES);
 
-  // All templates = built-ins + custom
-  const allTemplates: Template[] = [...defaultTemplates, ...customTemplates];
+  // All built-in templates (never includes custom — those live only in My Templates)
+  const allTemplates: Template[] = [...defaultTemplates];
 
-  // My Templates = only added ones
-  const myTemplates = allTemplates.filter(t => addedIds.includes(t.id));
+  // My Templates = added built-ins + all custom/edited templates
+  const myTemplates = [...defaultTemplates, ...customTemplates].filter(t => addedIds.includes(t.id));
 
+  // "All" tab shows only built-ins; "My" tab shows the user's personal list
   const displayed = (activeTab === 'my' ? myTemplates : allTemplates)
     .filter(t =>
       (selectedSpecialty === ALL_SPECIALTIES || t.specialty === selectedSpecialty) &&

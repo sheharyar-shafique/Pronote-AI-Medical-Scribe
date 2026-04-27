@@ -14,10 +14,10 @@ import {
 import { Sidebar } from '../components/layout';
 import { Card, Select } from '../components/ui';
 import { useRecordingStore, useNotesStore, useSettingsStore } from '../store';
-import { templates } from '../data';
+import { templates as allBuiltInTemplates } from '../data';
 import { audioApi, notesApi } from '../services/api';
 import toast from 'react-hot-toast';
-import type { ClinicalNote } from '../types';
+import type { ClinicalNote, Template } from '../types';
 
 const MIN_RECORDING_SECONDS = 30;
 
@@ -44,6 +44,28 @@ export default function CapturePage() {
   const meetsMinDuration = session.duration >= MIN_RECORDING_SECONDS;
   const remainingSeconds = Math.max(0, MIN_RECORDING_SECONDS - session.duration);
   const minProgress = Math.min(100, (session.duration / MIN_RECORDING_SECONDS) * 100);
+
+  // ── Build My Templates list from localStorage (mirrors TemplatesPage logic) ──
+  const myTemplates: Template[] = (() => {
+    try {
+      const raw = localStorage.getItem('pronote_added_ids');
+      const addedIds: string[] = raw
+        ? JSON.parse(raw)
+        : allBuiltInTemplates.map(t => t.id); // first visit fallback
+
+      const customRaw = localStorage.getItem('pronote_custom_templates');
+      const customTemplates: Template[] = customRaw ? JSON.parse(customRaw) : [];
+
+      const combined = [...allBuiltInTemplates, ...customTemplates];
+      return combined.filter(t => addedIds.includes(t.id));
+    } catch {
+      return allBuiltInTemplates; // safe fallback
+    }
+  })();
+
+  // Fall back to first My Template if the selected one isn't in My Templates
+  const resolvedTemplate =
+    myTemplates.find(t => t.id === selectedTemplate) ?? myTemplates[0];
 
   useEffect(() => {
     if (session.status === 'recording') {
@@ -378,13 +400,13 @@ export default function CapturePage() {
                   label="Template"
                   value={selectedTemplate}
                   onChange={(e) => setTemplate(e.target.value as any)}
-                  options={templates.map((t) => ({ value: t.id, label: t.name }))}
+                  options={myTemplates.map((t) => ({ value: t.id, label: t.name }))}
                 />
 
                 <div className="pt-4 border-t border-white/[0.08]">
                   <h4 className="text-sm font-semibold text-slate-300 mb-2">Template Sections</h4>
                   <ul className="text-sm text-slate-400 space-y-1.5">
-                    {templates.find((t) => t.id === selectedTemplate)?.sections.map((section, i) => (
+                    {resolvedTemplate?.sections.map((section, i) => (
                       <li key={i} className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
                         {section}
