@@ -9,7 +9,11 @@ import {
   RotateCcw,
   Loader2,
   Clock,
-  FileText
+  FileText,
+  Plus,
+  X,
+  ChevronDown,
+  User,
 } from 'lucide-react';
 import { Sidebar } from '../components/layout';
 import { Card, Select } from '../components/ui';
@@ -37,8 +41,19 @@ export default function CapturePage() {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [patientName, setPatientName] = useState('');
+  const [patientPronoun, setPatientPronoun] = useState('');
   const [shakingStop, setShakingStop] = useState(false);
+
+  // New Patient modal state
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
+  const [showNewPatientModal, setShowNewPatientModal] = useState(false);
+  const [newPatientName, setNewPatientName] = useState('');
+  const [newPatientPronoun, setNewPatientPronoun] = useState('-');
+  const [showPronounDropdown, setShowPronounDropdown] = useState(false);
+
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const patientFieldRef = useRef<HTMLDivElement>(null);
+  const pronounDropdownRef = useRef<HTMLDivElement>(null);
 
   const isRecordingActive = session.status === 'recording' || session.status === 'paused';
   const meetsMinDuration = session.duration >= MIN_RECORDING_SECONDS;
@@ -84,6 +99,20 @@ export default function CapturePage() {
     };
   }, [session.status, session.duration, setDuration]);
 
+  // Close patient dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (patientFieldRef.current && !patientFieldRef.current.contains(e.target as Node)) {
+        setShowPatientDropdown(false);
+      }
+      if (pronounDropdownRef.current && !pronounDropdownRef.current.contains(e.target as Node)) {
+        setShowPronounDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -91,6 +120,11 @@ export default function CapturePage() {
   };
 
   const handleStartRecording = async () => {
+    // Patient name is mandatory
+    if (!patientName.trim()) {
+      toast.error('Patient name is required to start recording.', { icon: '\uD83D\uDC64', duration: 3000 });
+      return;
+    }
     try {
       await startRecording();
       toast.success('Recording started - speak clearly');
@@ -178,6 +212,22 @@ export default function CapturePage() {
     toast.success('Recording reset');
   };
 
+  const PRONOUNS = ['She/Her', 'He/Him', 'They/Them'];
+
+  const handleCreatePatient = () => {
+    if (!newPatientName.trim()) {
+      toast.error('Please enter the patient name');
+      return;
+    }
+    setPatientName(newPatientName.trim());
+    setPatientPronoun(newPatientPronoun === '-' ? '' : newPatientPronoun);
+    setShowNewPatientModal(false);
+    setNewPatientName('');
+    setNewPatientPronoun('-');
+    setShowPronounDropdown(false);
+    toast.success('Patient added!');
+  };
+
   return (
     <Sidebar>
       <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
@@ -195,12 +245,67 @@ export default function CapturePage() {
             >
               <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-8 shadow-2xl">
                 {/* Patient Info */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Patient Name <span className="text-slate-500">(Optional)</span></label>
-                  <input type="text" value={patientName} onChange={(e) => setPatientName(e.target.value)}
-                    placeholder="Enter patient name"
-                    className="w-full px-4 py-3 rounded-xl border border-white/[0.12] bg-white/5 text-white placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400/40 transition-all text-sm"
-                    disabled={session.status !== 'idle'} />
+                <div className="mb-6" ref={patientFieldRef}>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
+                    <User size={13} className="text-slate-400" />
+                    Patient Name
+                    <span className="text-red-400 text-xs ml-0.5">*</span>
+                  </label>
+                  <div className="relative">
+                    {/* Name display / input */}
+                    <button
+                      type="button"
+                      onClick={() => session.status === 'idle' && setShowPatientDropdown(v => !v)}
+                      disabled={session.status !== 'idle'}
+                      className={`w-full px-4 py-3 rounded-xl border transition-all text-sm text-left flex items-center justify-between ${
+                        !patientName
+                          ? 'border-white/[0.12] bg-white/5 text-slate-500'
+                          : 'border-emerald-500/40 bg-emerald-500/5 text-white'
+                      } disabled:opacity-60`}
+                    >
+                      <span className={patientName ? 'text-white font-medium' : 'text-slate-500'}>
+                        {patientName || 'Click to add patient…'}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {patientPronoun && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                            {patientPronoun}
+                          </span>
+                        )}
+                        {patientName && session.status === 'idle' && (
+                          <span
+                            role="button"
+                            onClick={(e) => { e.stopPropagation(); setPatientName(''); setPatientPronoun(''); }}
+                            className="text-slate-500 hover:text-red-400 transition-colors"
+                          >
+                            <X size={14} />
+                          </span>
+                        )}
+                        {!patientName && <ChevronDown size={14} className="text-slate-500" />}
+                      </div>
+                    </button>
+
+                    {/* Dropdown */}
+                    <AnimatePresence>
+                      {showPatientDropdown && session.status === 'idle' && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                          transition={{ duration: 0.12 }}
+                          className="absolute top-full mt-1 left-0 right-0 bg-slate-800/95 backdrop-blur-sm border border-white/[0.12] rounded-xl shadow-2xl z-40 overflow-hidden"
+                        >
+                          <button
+                            onClick={() => { setShowPatientDropdown(false); setShowNewPatientModal(true); }}
+                            className="w-full flex items-center gap-2 px-4 py-3.5 text-sm text-violet-400 hover:bg-violet-500/10 transition-colors font-semibold"
+                          >
+                            <Plus size={15} />
+                            New Patient
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
 
                 {/* Timer Display */}
@@ -434,6 +539,113 @@ export default function CapturePage() {
           </motion.div>
         </div>
       </div>
+      {/* ── New Patient Modal ───────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showNewPatientModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowNewPatientModal(false); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 12 }}
+              transition={{ duration: 0.2 }}
+              className="bg-slate-900 border border-white/[0.12] rounded-2xl p-7 w-full max-w-lg shadow-2xl"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <h2 className="text-xl font-black text-white mb-1">New Patient</h2>
+                  <p className="text-slate-400 text-sm">Please add the patient's name and pronoun</p>
+                </div>
+                <button
+                  onClick={() => setShowNewPatientModal(false)}
+                  className="p-2 text-slate-500 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Pronoun + Name row */}
+              <div className="flex gap-3 mb-6">
+                {/* Pronoun dropdown */}
+                <div className="relative flex-shrink-0 w-36" ref={pronounDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowPronounDropdown(v => !v)}
+                    className="w-full px-3 py-3 bg-white/[0.05] border border-white/[0.12] rounded-xl text-sm text-white flex items-center justify-between gap-2 hover:border-violet-500/40 transition-all"
+                  >
+                    <span className={newPatientPronoun === '-' ? 'text-slate-500' : 'text-white'}>
+                      {newPatientPronoun}
+                    </span>
+                    <ChevronDown size={14} className={`text-slate-400 transition-transform ${showPronounDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  <AnimatePresence>
+                    {showPronounDropdown && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                        transition={{ duration: 0.12 }}
+                        className="absolute top-full mt-1 left-0 right-0 bg-slate-800 border border-white/[0.12] rounded-xl shadow-2xl z-50 overflow-hidden"
+                      >
+                        {['-', ...PRONOUNS].map(p => (
+                          <button
+                            key={p}
+                            onClick={() => { setNewPatientPronoun(p); setShowPronounDropdown(false); }}
+                            className={`w-full text-left px-4 py-3 text-sm transition-colors ${
+                              newPatientPronoun === p
+                                ? 'bg-violet-500/20 text-violet-300 font-semibold'
+                                : 'text-slate-300 hover:bg-white/[0.06]'
+                            }`}
+                          >
+                            {p === '-' ? <span className="text-slate-500">-</span> : p}
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Name input */}
+                <input
+                  type="text"
+                  value={newPatientName}
+                  onChange={e => setNewPatientName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleCreatePatient()}
+                  placeholder="Patient Name"
+                  autoFocus
+                  className="flex-1 px-4 py-3 bg-white/[0.05] border border-white/[0.12] rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all text-sm"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setShowNewPatientModal(false)}
+                  className="px-5 py-2.5 text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+                >
+                  Cancel
+                </button>
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleCreatePatient}
+                  className="px-6 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-violet-500/25 hover:opacity-90 transition-all"
+                >
+                  Create
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </Sidebar>
+
   );
 }
