@@ -13,6 +13,12 @@ import {
 // Check if we should use API or local mock
 const USE_API = import.meta.env.VITE_USE_API === 'true';
 
+/** Wipe template preference keys so the next logged-in user starts clean */
+function clearTemplatePrefs() {
+  localStorage.removeItem('pronote_added_ids');
+  localStorage.removeItem('pronote_custom_templates');
+}
+
 // Helper to convert API user to frontend User type
 function mapApiUser(apiUser: any): User {
   return {
@@ -146,6 +152,8 @@ export const useAuthStore = create<AuthState>()(
               throw err;
             }
 
+            // Clear any template prefs left by a previous account
+            clearTemplatePrefs();
             setAuthToken(data.token);
             set({ 
               user: mapApiUser(data.user), 
@@ -181,13 +189,14 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const response = await authApi.googleLogin(idToken);
-          setAuthToken(response.token);
-          set({
-            user: mapApiUser(response.user),
-            token: response.token,
-            isAuthenticated: true,
-            isLoading: false,
-          });
+        setAuthToken(response.token);
+        clearTemplatePrefs(); // wipe previous account's prefs
+        set({
+          user: mapApiUser(response.user),
+          token: response.token,
+          isAuthenticated: true,
+          isLoading: false,
+        });
         } catch (error) {
           set({ error: (error as any)?.message || 'Google login failed', isLoading: false });
           throw error;
@@ -200,6 +209,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           if (USE_API) {
             const response = await authApi.signup(email, password, name, specialty);
+            clearTemplatePrefs(); // new user starts with clean slate
             set({ 
               user: mapApiUser(response.user), 
               token: response.token,
@@ -237,8 +247,9 @@ export const useAuthStore = create<AuthState>()(
         }
         setAuthToken(null);
         set({ user: null, token: null, isAuthenticated: false });
-        // Clear notes storage on logout
+        // Clear all user-specific localStorage on logout
         localStorage.removeItem('notes-storage');
+        clearTemplatePrefs();
       },
       
       updateUser: (updates) => {

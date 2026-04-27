@@ -71,7 +71,7 @@ export default function TemplatesPage() {
   useEffect(() => {
     templatesApi.getPreferences().then(res => {
       if (res.preferences) {
-        // Server has data — it is authoritative, overwrite local state
+        // Server has data — authoritative, overwrite local state
         const { addedIds: serverIds, customTemplates: serverCustom } = res.preferences;
         setAddedIds(serverIds);
         setCustomTemplates(serverCustom as unknown as Template[]);
@@ -80,20 +80,16 @@ export default function TemplatesPage() {
           localStorage.setItem('pronote_custom_templates', JSON.stringify(serverCustom));
         } catch {}
       } else {
-        // Server has no data yet — bootstrap: push localStorage state up so other
-        // devices can pick it up immediately.
-        try {
-          const rawIds = localStorage.getItem('pronote_added_ids');
-          const rawCustom = localStorage.getItem('pronote_custom_templates');
-          const ids: string[] = rawIds ? JSON.parse(rawIds) : defaultTemplates.map(t => t.id);
-          const customs: Template[] = rawCustom ? JSON.parse(rawCustom) : [];
-          templatesApi
-            .savePreferences(ids, customs as unknown as import('../services/api').CustomTemplate[])
-            .catch(() => {});
-        } catch {}
+        // No server data yet (new user). localStorage was cleared on login so
+        // we default to ALL built-in templates — every new account starts with the full library.
+        const defaultIds = defaultTemplates.map(t => t.id);
+        setAddedIds(defaultIds);
+        setCustomTemplates([]);
+        // Bootstrap server so other devices stay in sync from first login
+        templatesApi.savePreferences(defaultIds, []).catch(() => {});
       }
     }).catch(() => {
-      // Server unavailable — silently use localStorage
+      // Server unavailable — keep state initialised from mount
     });
   }, []);
 
