@@ -17,6 +17,7 @@ import {
   TemplatesPage,
   TemplateEditorPage,
   HelpCenterPage,
+  DemoSessionPage,
   SettingsPage,
   AdminPage,
   TeamPage,
@@ -244,6 +245,14 @@ function App() {
           element={
             <ProtectedRoute>
               <HelpCenterPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/demo"
+          element={
+            <ProtectedRoute>
+              <DemoSessionPage />
             </ProtectedRoute>
           }
         />

@@ -482,6 +482,20 @@ export default function CapturePage() {
                     <li>• State important details explicitly</li>
                   </ul>
                 </div>
+
+                {/* Demo session link */}
+                {session.status === 'idle' && (
+                  <motion.button
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                    onClick={() => navigate('/demo')}
+                    className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-violet-500/[0.07] border border-violet-500/20 text-violet-400 hover:bg-violet-500/15 hover:border-violet-500/40 transition-all text-sm font-medium group"
+                  >
+                    <Play size={13} className="group-hover:translate-x-0.5 transition-transform" />
+                    New to Pronote? Try a demo session
+                  </motion.button>
+                )}
               </div>
             </motion.div>
           </div>
