@@ -70,17 +70,30 @@ export default function TemplatesPage() {
   // ── Server sync: load on mount, overrides localStorage with server data ──────
   useEffect(() => {
     templatesApi.getPreferences().then(res => {
-      if (!res.preferences) return; // no server data yet — keep localStorage values
-      const { addedIds: serverIds, customTemplates: serverCustom } = res.preferences;
-      // Server is authoritative — update state + localStorage
-      setAddedIds(serverIds);
-      setCustomTemplates(serverCustom as unknown as Template[]);
-      try {
-        localStorage.setItem('pronote_added_ids', JSON.stringify(serverIds));
-        localStorage.setItem('pronote_custom_templates', JSON.stringify(serverCustom));
-      } catch {}
+      if (res.preferences) {
+        // Server has data — it is authoritative, overwrite local state
+        const { addedIds: serverIds, customTemplates: serverCustom } = res.preferences;
+        setAddedIds(serverIds);
+        setCustomTemplates(serverCustom as unknown as Template[]);
+        try {
+          localStorage.setItem('pronote_added_ids', JSON.stringify(serverIds));
+          localStorage.setItem('pronote_custom_templates', JSON.stringify(serverCustom));
+        } catch {}
+      } else {
+        // Server has no data yet — bootstrap: push localStorage state up so other
+        // devices can pick it up immediately.
+        try {
+          const rawIds = localStorage.getItem('pronote_added_ids');
+          const rawCustom = localStorage.getItem('pronote_custom_templates');
+          const ids: string[] = rawIds ? JSON.parse(rawIds) : defaultTemplates.map(t => t.id);
+          const customs: Template[] = rawCustom ? JSON.parse(rawCustom) : [];
+          templatesApi
+            .savePreferences(ids, customs as unknown as import('../services/api').CustomTemplate[])
+            .catch(() => {});
+        } catch {}
+      }
     }).catch(() => {
-      // Server unavailable — silently use localStorage (already in state)
+      // Server unavailable — silently use localStorage
     });
   }, []);
 

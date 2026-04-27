@@ -75,16 +75,25 @@ export default function CapturePage() {
 
   useEffect(() => {
     templatesApi.getPreferences().then(res => {
-      if (!res.preferences) return;
-      const { addedIds, customTemplates: serverCustom } = res.preferences;
-      const customs = serverCustom as unknown as Template[];
-      const combined = [...allBuiltInTemplates, ...customs].filter(t => addedIds.includes(t.id));
-      setMyTemplates(combined);
-      // Also write back to localStorage so it stays fast next load
-      try {
-        localStorage.setItem('pronote_added_ids', JSON.stringify(addedIds));
-        localStorage.setItem('pronote_custom_templates', JSON.stringify(serverCustom));
-      } catch {}
+      if (res.preferences) {
+        const { addedIds, customTemplates: serverCustom } = res.preferences;
+        const customs = serverCustom as unknown as Template[];
+        const combined = [...allBuiltInTemplates, ...customs].filter(t => addedIds.includes(t.id));
+        setMyTemplates(combined);
+        try {
+          localStorage.setItem('pronote_added_ids', JSON.stringify(addedIds));
+          localStorage.setItem('pronote_custom_templates', JSON.stringify(serverCustom));
+        } catch {}
+      } else {
+        // Bootstrap: push whatever is in localStorage to the server
+        try {
+          const rawIds = localStorage.getItem('pronote_added_ids');
+          const rawCustom = localStorage.getItem('pronote_custom_templates');
+          const ids: string[] = rawIds ? JSON.parse(rawIds) : allBuiltInTemplates.map(t => t.id);
+          const customs = rawCustom ? JSON.parse(rawCustom) : [];
+          templatesApi.savePreferences(ids, customs).catch(() => {});
+        } catch {}
+      }
     }).catch(() => {});
   }, []);
 
