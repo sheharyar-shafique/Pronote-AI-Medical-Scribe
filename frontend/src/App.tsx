@@ -16,6 +16,7 @@ import {
   NoteEditorPage,
   TemplatesPage,
   TemplateEditorPage,
+  HelpCenterPage,
   SettingsPage,
   AdminPage,
   TeamPage,
@@ -235,6 +236,14 @@ function App() {
           element={
             <ProtectedRoute>
               <TemplateEditorPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/help"
+          element={
+            <ProtectedRoute>
+              <HelpCenterPage />
             </ProtectedRoute>
           }
         />

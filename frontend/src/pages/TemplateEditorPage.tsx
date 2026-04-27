@@ -282,9 +282,12 @@ export default function TemplateEditorPage() {
 
                   <div className="mt-6 pt-5 border-t border-white/[0.08] text-center text-xs text-slate-400 leading-relaxed">
                     For examples and additional guidance, visit our{' '}
-                    <span className="text-violet-400 font-semibold cursor-pointer hover:text-violet-300 transition-colors">
+                    <button
+                      onClick={() => navigate('/help')}
+                      className="text-violet-400 font-semibold hover:text-violet-300 transition-colors underline underline-offset-2"
+                    >
                       Help Center
-                    </span>
+                    </button>
                   </div>
                 </div>
               </motion.div>

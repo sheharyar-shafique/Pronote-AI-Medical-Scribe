@@ -10,6 +10,7 @@ export { default as NotesPage } from './NotesPage';
 export { default as NoteEditorPage } from './NoteEditorPage';
 export { default as TemplatesPage } from './TemplatesPage';
 export { default as TemplateEditorPage } from './TemplateEditorPage';
+export { default as HelpCenterPage } from './HelpCenterPage';
 export { default as SettingsPage } from './SettingsPage';
 export { default as AdminPage } from './AdminPage';
 export { default as TeamPage } from './TeamPage';
