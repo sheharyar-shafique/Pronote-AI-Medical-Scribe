@@ -41,24 +41,27 @@ const adminItems = [
 // component on re-renders, which would reset Framer Motion animations (= blink).
 // ─────────────────────────────────────────────────────────────────────────────
 interface SidebarContentProps {
-  collapsed:      boolean;
-  pathname:       string;
-  userName:       string;
-  userSpecialty:  string;
-  userInitial:    string;
-  allMenuItems:   typeof menuItems;
-  isCollapsed:    boolean;
+  collapsed:        boolean;
+  pathname:         string;
+  userName:         string;
+  userSpecialty:    string;
+  userInitial:      string;
+  allMenuItems:     typeof menuItems;
+  isCollapsed:      boolean;
+  trialDaysLeft:    number | null;
   onToggleCollapse: () => void;
-  onLogout:       () => void;
+  onLogout:         () => void;
 }
 
-const SidebarContent = memo(({
+const SidebarContent = memo((
+{
   collapsed,
   pathname,
   userName,
   userSpecialty,
   userInitial,
   allMenuItems,
+  trialDaysLeft,
   onToggleCollapse,
   onLogout,
 }: SidebarContentProps) => (
@@ -122,6 +125,42 @@ const SidebarContent = memo(({
         );
       })}
     </nav>
+
+    {/* Trial countdown badge */}
+    {trialDaysLeft !== null && (
+      <div className={`px-3 pb-2 ${collapsed ? 'flex justify-center' : ''}`}>
+        {collapsed ? (
+          <div
+            title={`Trial: ${trialDaysLeft}d left`}
+            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black border-2 ${
+              trialDaysLeft <= 3
+                ? 'border-red-400 text-red-400 bg-red-400/10'
+                : trialDaysLeft <= 7
+                ? 'border-amber-400 text-amber-400 bg-amber-400/10'
+                : 'border-emerald-400 text-emerald-400 bg-emerald-400/10'
+            }`}
+          >
+            {trialDaysLeft}
+          </div>
+        ) : (
+          <div className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-full border text-xs font-semibold ${
+            trialDaysLeft <= 3
+              ? 'border-red-400/50 bg-red-400/10 text-red-300'
+              : trialDaysLeft <= 7
+              ? 'border-amber-400/50 bg-amber-400/10 text-amber-300'
+              : 'border-white/20 bg-white/5 text-slate-300'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse ${
+              trialDaysLeft <= 3 ? 'bg-red-400' : trialDaysLeft <= 7 ? 'bg-amber-400' : 'bg-slate-400'
+            }`} />
+            {trialDaysLeft === 0
+              ? 'Trial expires today!'
+              : `Your trial expires in ${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'}`
+            }
+          </div>
+        )}
+      </div>
+    )}
 
     {/* User Profile */}
     <div className="p-3 border-t border-white/10 space-y-2">
@@ -214,6 +253,13 @@ export default function Sidebar({ children }: SidebarProps) {
   const userSpecialty = user?.specialty || 'Clinician';
   const userInitial   = user?.name?.charAt(0) || 'D';
 
+  // Trial countdown
+  const trialDaysLeft: number | null = (() => {
+    if (user?.subscriptionStatus !== 'trial' || !user?.trialEndsAt) return null;
+    const ms = new Date(user.trialEndsAt).getTime() - Date.now();
+    return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+  })();
+
   return (
     <div className="flex min-h-screen bg-slate-50 overflow-x-hidden">
       {/* Mobile Top Bar */}
@@ -256,17 +302,18 @@ export default function Sidebar({ children }: SidebarProps) {
               transition={{ type: 'spring', damping: 28, stiffness: 250 }}
               className="lg:hidden fixed left-0 top-0 bottom-0 w-[280px] z-50 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 shadow-2xl"
             >
-              <SidebarContent
-                collapsed={false}
-                pathname={location.pathname}
-                userName={userName}
-                userSpecialty={userSpecialty}
-                userInitial={userInitial}
-                allMenuItems={allMenuItems}
-                isCollapsed={false}
-                onToggleCollapse={() => setIsCollapsed(v => !v)}
-                onLogout={handleLogout}
-              />
+          <SidebarContent
+            collapsed={false}
+            pathname={location.pathname}
+            userName={userName}
+            userSpecialty={userSpecialty}
+            userInitial={userInitial}
+            allMenuItems={allMenuItems}
+            isCollapsed={false}
+            trialDaysLeft={trialDaysLeft}
+            onToggleCollapse={() => setIsCollapsed(v => !v)}
+            onLogout={handleLogout}
+          />
             </motion.div>
           </>
         )}
@@ -287,6 +334,7 @@ export default function Sidebar({ children }: SidebarProps) {
           userInitial={userInitial}
           allMenuItems={allMenuItems}
           isCollapsed={isCollapsed}
+          trialDaysLeft={trialDaysLeft}
           onToggleCollapse={() => setIsCollapsed(v => !v)}
           onLogout={handleLogout}
         />
