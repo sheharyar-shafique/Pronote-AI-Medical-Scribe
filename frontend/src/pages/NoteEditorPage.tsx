@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, 
   Save, 
@@ -8,7 +8,10 @@ import {
   CheckCircle,
   Clock,
   Edit3,
-  Copy
+  Copy,
+  MoreVertical,
+  User,
+  Trash2,
 } from 'lucide-react';
 import { Sidebar } from '../components/layout';
 import { Card, Button, Badge, Modal } from '../components/ui';
@@ -22,7 +25,7 @@ import { getAuthToken } from '../services/api';
 export default function NoteEditorPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getNoteById, updateNote, addNote } = useNotesStore();
+  const { getNoteById, updateNote, addNote, deleteNote } = useNotesStore();
   const { selectedTemplate } = useSettingsStore();
   
   const [note, setNote] = useState<ClinicalNote | null>(null);
@@ -30,6 +33,18 @@ export default function NoteEditorPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [showSignModal, setShowSignModal] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowMenu(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   useEffect(() => {
     if (id) {
@@ -96,6 +111,17 @@ export default function NoteEditorPage() {
     setNote(prev => prev ? { ...prev, status: 'signed' } : null);
     setShowSignModal(false);
     toast.success('Note signed and finalized');
+  };
+
+  const handleDelete = async () => {
+    if (!note) return;
+    try {
+      await deleteNote(note.id);
+      toast.success('Note deleted');
+      navigate('/notes');
+    } catch {
+      toast.error('Failed to delete note');
+    }
   };
 
   const handleCopy = () => {
@@ -200,21 +226,9 @@ export default function NoteEditorPage() {
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleCopy}>
-                <Copy size={16} className="mr-1" />
-                Copy
-              </Button>
+            <div className="flex gap-2 items-center">
               <Button
                 size="sm"
-                onClick={handleExport}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white border-0"
-              >
-                <Download size={16} className="mr-1" />
-                Export EHR
-              </Button>
-              <Button 
-                size="sm" 
                 onClick={handleSave}
                 isLoading={isSaving}
                 disabled={!hasChanges || note.status === 'signed'}
@@ -223,7 +237,7 @@ export default function NoteEditorPage() {
                 Save
               </Button>
               {note.status !== 'signed' && (
-                <Button 
+                <Button
                   size="sm"
                   className="bg-blue-600 hover:bg-blue-700"
                   onClick={() => setShowSignModal(true)}
@@ -232,6 +246,80 @@ export default function NoteEditorPage() {
                   Sign
                 </Button>
               )}
+
+              {/* Three-dot menu */}
+              <div ref={menuRef} className="relative">
+                <button
+                  onClick={() => setShowMenu(v => !v)}
+                  className="p-2 rounded-xl border border-white/10 bg-white/[0.05] hover:bg-white/10 text-slate-300 hover:text-white transition-colors"
+                  title="More options"
+                >
+                  <MoreVertical size={17} />
+                </button>
+
+                <AnimatePresence>
+                  {showMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 6 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 4 }}
+                      transition={{ duration: 0.12 }}
+                      className="absolute right-0 top-full mt-2 z-50 w-52 bg-slate-800 border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+                    >
+                      {/* View Patient */}
+                      <button
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-white/10 transition-colors"
+                        onClick={() => {
+                          setShowMenu(false);
+                          navigate(`/patients/${encodeURIComponent(note.patientName)}`);
+                        }}
+                      >
+                        <User size={15} className="text-blue-400" />
+                        View Patient
+                      </button>
+
+                      {/* Copy Note */}
+                      <button
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-white/10 transition-colors"
+                        onClick={() => { setShowMenu(false); handleCopy(); }}
+                      >
+                        <Copy size={15} className="text-slate-400" />
+                        Copy Note
+                      </button>
+
+                      {/* Export PDF */}
+                      <button
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-white/10 transition-colors"
+                        onClick={() => { setShowMenu(false); handleExport(); }}
+                      >
+                        <Download size={15} className="text-emerald-400" />
+                        Export PDF
+                      </button>
+
+                      {note.status !== 'signed' && (
+                        <button
+                          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-white/10 transition-colors"
+                          onClick={() => { setShowMenu(false); setShowSignModal(true); }}
+                        >
+                          <CheckCircle size={15} className="text-blue-400" />
+                          Sign Note
+                        </button>
+                      )}
+
+                      <div className="h-px bg-white/10 mx-3" />
+
+                      {/* Delete */}
+                      <button
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                        onClick={() => { setShowMenu(false); setShowDeleteModal(true); }}
+                      >
+                        <Trash2 size={15} />
+                        Delete Note
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
         </motion.div>
@@ -322,6 +410,29 @@ export default function NoteEditorPage() {
             </Button>
             <Button onClick={handleSign}>
               Sign Note
+            </Button>
+          </div>
+        </Modal>
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          title="Delete Note"
+        >
+          <p className="text-slate-400 mb-6">
+            Are you sure you want to delete this note for <span className="text-white font-medium">{note.patientName}</span>? This action cannot be undone.
+          </p>
+          <div className="flex gap-3 justify-end">
+            <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 border-0"
+              onClick={handleDelete}
+            >
+              <Trash2 size={15} className="mr-1.5" />
+              Delete Note
             </Button>
           </div>
         </Modal>

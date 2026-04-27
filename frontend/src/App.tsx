@@ -14,6 +14,7 @@ import {
   UploadPage,
   NotesPage,
   NoteEditorPage,
+  PatientPage,
   TemplatesPage,
   TemplateEditorPage,
   HelpCenterPage,
@@ -221,6 +222,14 @@ function App() {
           element={
             <ProtectedRoute>
               <NoteEditorPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/patients/:patientName"
+          element={
+            <ProtectedRoute>
+              <PatientPage />
             </ProtectedRoute>
           }
         />

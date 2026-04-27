@@ -8,6 +8,7 @@ export { default as DictationPage } from './DictationPage';
 export { default as UploadPage } from './UploadPage';
 export { default as NotesPage } from './NotesPage';
 export { default as NoteEditorPage } from './NoteEditorPage';
+export { default as PatientPage } from './PatientPage';
 export { default as TemplatesPage } from './TemplatesPage';
 export { default as TemplateEditorPage } from './TemplateEditorPage';
 export { default as HelpCenterPage } from './HelpCenterPage';
