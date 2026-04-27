@@ -15,6 +15,7 @@ import {
   NotesPage,
   NoteEditorPage,
   TemplatesPage,
+  TemplateEditorPage,
   SettingsPage,
   AdminPage,
   TeamPage,
@@ -226,6 +227,14 @@ function App() {
           element={
             <ProtectedRoute>
               <TemplatesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/templates/:id/edit"
+          element={
+            <ProtectedRoute>
+              <TemplateEditorPage />
             </ProtectedRoute>
           }
         />

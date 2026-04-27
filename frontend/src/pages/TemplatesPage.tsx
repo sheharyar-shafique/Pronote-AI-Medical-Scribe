@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  FileText, Plus, Search, Pencil, Trash2, Share2, CheckCircle2, X, Tag
+  FileText, Plus, Search, Trash2, Share2, CheckCircle2, X, Tag
 } from 'lucide-react';
 import { templatesApi } from '../services/api';
 import { Sidebar } from '../components/layout';
@@ -89,43 +89,9 @@ export default function TemplatesPage() {
     toast.success('Template created!');
   };
 
-  // ── Edit modal ───────────────────────────────────────────────────────────────
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', description: '', sections: '', specialty: '' });
-  const [isSaving, setIsSaving] = useState(false);
-
+  // ── Edit — navigate to full editor page ─────────────────────────────────────
   const handleOpenEdit = (t: Template) => {
-    setEditingTemplate(t);
-    setEditForm({ name: t.name, description: t.description, sections: t.sections.join(', '), specialty: t.specialty });
-    setIsEditOpen(true);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingTemplate) return;
-    if (!editForm.name.trim()) { toast.error('Name is required'); return; }
-    setIsSaving(true);
-    try {
-      const sections = editForm.sections.split(',').map(s => s.trim()).filter(Boolean);
-      if (editingTemplate.isCustom) {
-        const dbId = (editingTemplate as Template & { dbId?: string }).dbId;
-        await templatesApi.update(dbId || editingTemplate.id, {
-          name: editForm.name, description: editForm.description,
-          templateType: editingTemplate.id, sections, specialty: editForm.specialty,
-        });
-        setCustomTemplates(prev => prev.map(t =>
-          t.id === editingTemplate.id
-            ? { ...t, name: editForm.name, description: editForm.description, sections, specialty: editForm.specialty }
-            : t
-        ));
-      }
-      toast.success('Template updated!');
-      setIsEditOpen(false);
-    } catch {
-      toast.error('Failed to save changes.');
-    } finally {
-      setIsSaving(false);
-    }
+    navigate(`/templates/${t.id}/edit`);
   };
 
   // ── Add / Remove ─────────────────────────────────────────────────────────────
@@ -325,37 +291,7 @@ export default function TemplatesPage() {
             </div>
           </Modal>
 
-          {/* ── Edit Modal ──────────────────────────────────────────────────────── */}
-          <Modal isOpen={isEditOpen} onClose={() => { setIsEditOpen(false); setEditingTemplate(null); }}
-            title={`Edit: ${editingTemplate?.name || ''}`}>
-            <div className="space-y-4">
-              <Input label="Template Name" value={editForm.name}
-                onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))}
-                placeholder="Template name" />
-              <Input label="Description" value={editForm.description}
-                onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))}
-                placeholder="Description" />
-              <Input label="Sections (comma-separated)" value={editForm.sections}
-                onChange={e => setEditForm(p => ({ ...p, sections: e.target.value }))}
-                placeholder="e.g., Chief Complaint, History, Plan" />
-              <Input label="Specialty" value={editForm.specialty}
-                onChange={e => setEditForm(p => ({ ...p, specialty: e.target.value }))}
-                placeholder="Specialty" />
-              <div className="flex gap-3 pt-4">
-                <button onClick={() => { setIsEditOpen(false); setEditingTemplate(null); }}
-                  className="flex-1 py-2.5 border border-white/20 text-slate-300 rounded-xl hover:bg-white/10 font-semibold text-sm transition-all">
-                  Cancel
-                </button>
-                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                  onClick={handleSaveEdit} disabled={isSaving}
-                  className="flex-1 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-violet-500/25 hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                  {isSaving
-                    ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving…</>
-                    : <><Pencil size={14} />Save Changes</>}
-                </motion.button>
-              </div>
-            </div>
-          </Modal>
+          {/* Edit navigates to /templates/:id/edit — no modal needed */}
 
         </div>
       </div>
