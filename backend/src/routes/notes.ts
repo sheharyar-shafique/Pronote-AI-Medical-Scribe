@@ -166,6 +166,48 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next) => {
     const startTime = Date.now();
     const data = createNoteSchema.parse(req.body);
 
+    // Normalize template ID for the DB CHECK constraint.
+    // The DB only accepts: soap, psychiatry, therapy, pediatrics, cardiology, dermatology, orthopedics, custom
+    // All other template IDs (progress-notes, daily-note, custom-*, etc.) get mapped.
+    const ALLOWED_TEMPLATES = ['soap', 'psychiatry', 'therapy', 'pediatrics', 'cardiology', 'dermatology', 'orthopedics', 'custom'];
+    const templateMapping: Record<string, string> = {
+      'progress-notes': 'soap',
+      'daily-note': 'soap',
+      'hpi': 'soap',
+      'chart-notes': 'soap',
+      'chronic-care-management': 'soap',
+      'wellness-plan': 'soap',
+      'psych-eval': 'psychiatry',
+      'psychiatric-soap': 'psychiatry',
+      'mental-health-progress-note': 'psychiatry',
+      'mental-health-intake': 'psychiatry',
+      'mental-health-risk-assessment': 'psychiatry',
+      'biopsychosocial-assessment': 'psychiatry',
+      'behavioral-health-progress-note': 'psychiatry',
+      'girp-note': 'therapy',
+      'dbt-diary-card': 'therapy',
+      'family-therapy-note': 'therapy',
+      'couples-therapy-note': 'therapy',
+      'physical-therapy-eval': 'therapy',
+      'occupational-therapy': 'therapy',
+      'speech-therapy': 'therapy',
+      'nursing-notes': 'soap',
+      'nursing-report-sheet': 'soap',
+      'adime-note': 'soap',
+      'patient-referral-form': 'custom',
+      'telehealth-consent': 'custom',
+      'esa-letter': 'custom',
+      'medical-certificate': 'custom',
+      'insurance-claim': 'custom',
+    };
+
+    let dbTemplate = data.template;
+    if (!ALLOWED_TEMPLATES.includes(dbTemplate)) {
+      dbTemplate = templateMapping[dbTemplate] || (dbTemplate.startsWith('custom-') ? 'custom' : 'custom');
+    }
+
+    // Template normalization above handles the CHECK constraint — no SQL migration needed
+
     // Create the clinical note with processing time
     const processingTimeSeconds = data.processingTime || Math.round((Date.now() - startTime) / 1000) || 5;
     
@@ -176,7 +218,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next) => {
         patient_name: data.patientName,
         patient_id: data.patientId,
         date_of_service: data.dateOfService || new Date().toISOString().split('T')[0],
-        template: data.template,
+        template: dbTemplate,
         status: data.status || 'draft',
         transcription: data.transcription,
         processing_time_seconds: processingTimeSeconds,
