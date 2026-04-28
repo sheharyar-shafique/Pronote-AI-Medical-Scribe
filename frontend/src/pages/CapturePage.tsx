@@ -36,7 +36,7 @@ export default function CapturePage() {
     resetRecording,
     setDuration 
   } = useRecordingStore();
-  const { addNote } = useNotesStore();
+  const { addNote, notes, fetchNotes } = useNotesStore();
   const { selectedTemplate, setTemplate } = useSettingsStore();
   
   const [isProcessing, setIsProcessing] = useState(false);
@@ -54,6 +54,32 @@ export default function CapturePage() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const patientFieldRef = useRef<HTMLDivElement>(null);
   const pronounDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Patient search / autocomplete state
+  const [patientSearchQuery, setPatientSearchQuery] = useState('');
+
+  // Fetch existing notes on mount to extract known patient names
+  useEffect(() => { fetchNotes(); }, [fetchNotes]);
+
+  // Unique patient names from the user's existing notes (most-recent first)
+  const existingPatientNames = (() => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    // notes are typically sorted by createdAt desc from the API
+    for (const n of notes) {
+      const name = n.patientName?.trim();
+      if (name && !seen.has(name.toLowerCase())) {
+        seen.add(name.toLowerCase());
+        result.push(name);
+      }
+    }
+    return result;
+  })();
+
+  // Filter by search query
+  const filteredPatientNames = patientSearchQuery
+    ? existingPatientNames.filter(n => n.toLowerCase().includes(patientSearchQuery.toLowerCase()))
+    : existingPatientNames;
 
   const isRecordingActive = session.status === 'recording' || session.status === 'paused';
   const meetsMinDuration = session.duration >= MIN_RECORDING_SECONDS;
@@ -319,13 +345,68 @@ export default function CapturePage() {
                           transition={{ duration: 0.12 }}
                           className="absolute top-full mt-1 left-0 right-0 bg-slate-800/95 backdrop-blur-sm border border-white/[0.12] rounded-xl shadow-2xl z-40 overflow-hidden"
                         >
-                          <button
-                            onClick={() => { setShowPatientDropdown(false); setShowNewPatientModal(true); }}
-                            className="w-full flex items-center gap-2 px-4 py-3.5 text-sm text-violet-400 hover:bg-violet-500/10 transition-colors font-semibold"
-                          >
-                            <Plus size={15} />
-                            New Patient
-                          </button>
+                          {/* Search / filter input */}
+                          <div className="px-3 pt-3 pb-2">
+                            <input
+                              type="text"
+                              placeholder="Patient Name"
+                              value={patientSearchQuery}
+                              onChange={(e) => setPatientSearchQuery(e.target.value)}
+                              autoFocus
+                              className="w-full px-3 py-2.5 bg-white/[0.06] border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all"
+                            />
+                          </div>
+
+                          {/* Recent patients list */}
+                          {filteredPatientNames.length > 0 && (
+                            <div className="px-3 pb-1">
+                              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1 px-1">Recent Patients</p>
+                              <div className="max-h-40 overflow-y-auto">
+                                {filteredPatientNames.map(name => (
+                                  <button
+                                    key={name}
+                                    onClick={() => {
+                                      setPatientName(name);
+                                      setShowPatientDropdown(false);
+                                      setPatientSearchQuery('');
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-white hover:bg-blue-500/15 rounded-lg transition-colors text-left"
+                                  >
+                                    <div className="w-7 h-7 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                                      <span className="text-xs font-bold text-blue-400">{name.charAt(0).toUpperCase()}</span>
+                                    </div>
+                                    {name}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {filteredPatientNames.length === 0 && patientSearchQuery && (
+                            <div className="px-4 py-3 text-center">
+                              <p className="text-xs text-slate-500">No matching patients</p>
+                            </div>
+                          )}
+
+                          <div className="border-t border-white/[0.08]">
+                            <button
+                              onClick={() => {
+                                // If user typed a name in search, use it directly
+                                if (patientSearchQuery.trim()) {
+                                  setPatientName(patientSearchQuery.trim());
+                                  setPatientSearchQuery('');
+                                  setShowPatientDropdown(false);
+                                } else {
+                                  setShowPatientDropdown(false);
+                                  setShowNewPatientModal(true);
+                                }
+                              }}
+                              className="w-full flex items-center gap-2 px-4 py-3.5 text-sm text-violet-400 hover:bg-violet-500/10 transition-colors font-semibold"
+                            >
+                              <Plus size={15} />
+                              New Patient
+                            </button>
+                          </div>
                         </motion.div>
                       )}
                     </AnimatePresence>
