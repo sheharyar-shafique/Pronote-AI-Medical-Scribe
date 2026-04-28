@@ -231,13 +231,25 @@ export default function DictationPage() {
       );
       
       toast.dismiss('dictation-process');
+
+      // Sanitize GPT content — strip null / non-string values before sending
+      const sanitizedContent: Record<string, unknown> = {};
+      if (noteResult.content && typeof noteResult.content === 'object') {
+        for (const [key, value] of Object.entries(noteResult.content)) {
+          if (value != null && typeof value === 'string') {
+            sanitizedContent[key] = value;
+          } else if (value != null && typeof value === 'object') {
+            sanitizedContent[key] = value;
+          }
+        }
+      }
       
       // Create the note in the database
       const createdNote = await notesApi.create({
         patientName: patientName || 'Unknown Patient',
         dateOfService: new Date().toISOString().split('T')[0],
         template: selectedTemplate,
-        content: noteResult.content,
+        content: sanitizedContent as any,
         transcription: transcript,
       });
       
@@ -261,7 +273,10 @@ export default function DictationPage() {
     } catch (error: any) {
       console.error('Dictation processing error:', error);
       toast.dismiss('dictation-process');
-      toast.error(error.message || 'Failed to generate note');
+      const msg = error?.details
+        ? `Validation failed: ${error.details.map((d: any) => `${d.field}: ${d.message}`).join(', ')}`
+        : error.message || 'Failed to generate note';
+      toast.error(msg);
     } finally {
       setIsProcessing(false);
     }

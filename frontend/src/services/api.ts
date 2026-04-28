@@ -24,11 +24,13 @@ export function getAuthToken(): string | null {
 export class ApiError extends Error {
   status: number;
   code?: string;
+  details?: { field: string; message: string }[];
 
-  constructor(message: string, status: number, code?: string) {
+  constructor(message: string, status: number, code?: string, details?: { field: string; message: string }[]) {
     super(message);
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -55,7 +57,7 @@ async function apiFetch<T>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'An error occurred' }));
-    throw new ApiError(error.error || 'An error occurred', response.status, error.code);
+    throw new ApiError(error.error || 'An error occurred', response.status, error.code, error.details);
   }
 
   return response.json();

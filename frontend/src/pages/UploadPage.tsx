@@ -99,15 +99,26 @@ export default function UploadPage() {
       
       setProgress(100);
       toast.dismiss('upload-process');
+
+      // Sanitize GPT content — strip null / non-string values before sending
+      const sanitizedContent: Record<string, unknown> = {};
+      if (noteResult.content && typeof noteResult.content === 'object') {
+        for (const [key, value] of Object.entries(noteResult.content)) {
+          if (value != null && typeof value === 'string') {
+            sanitizedContent[key] = value;
+          } else if (value != null && typeof value === 'object') {
+            sanitizedContent[key] = value;
+          }
+        }
+      }
       
       // Step 4: Create the note in the database
       const createdNote = await notesApi.create({
         patientName: patientName || 'Unknown Patient',
         dateOfService: new Date().toISOString().split('T')[0],
         template: selectedTemplate,
-        content: noteResult.content,
+        content: sanitizedContent as any,
         transcription: transcriptionResult.transcription,
-        audioUrl: uploadResult.url,
       });
       
       // Also add to local store for immediate UI update
@@ -131,7 +142,10 @@ export default function UploadPage() {
     } catch (error: any) {
       console.error('Upload processing error:', error);
       toast.dismiss('upload-process');
-      toast.error(error.message || 'Failed to process audio file');
+      const msg = error?.details
+        ? `Validation failed: ${error.details.map((d: any) => `${d.field}: ${d.message}`).join(', ')}`
+        : error.message || 'Failed to process audio file';
+      toast.error(msg);
     } finally {
       setIsProcessing(false);
       setProgress(0);

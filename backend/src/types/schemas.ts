@@ -19,29 +19,33 @@ export const updateUserSchema = z.object({
   avatar: z.string().url().optional(),
 });
 
+// Helper: accept string, null, or undefined — coerce null → undefined
+const nullableString = z.string().nullable().optional().transform(v => v ?? undefined);
+
 // Note schemas
 export const createNoteSchema = z.object({
   patientName: z.string().min(1, 'Patient name is required'),
-  patientId: z.string().optional(),
-  dateOfService: z.string().optional(),
+  patientId: z.string().nullable().optional(),
+  dateOfService: z.string().nullable().optional(),
   template: z.string().min(1, 'Template is required'),
   content: z.object({
-    subjective: z.string().optional(),
-    objective: z.string().optional(),
-    assessment: z.string().optional(),
-    plan: z.string().optional(),
-    chiefComplaint: z.string().optional(),
-    historyOfPresentIllness: z.string().optional(),
-    reviewOfSystems: z.string().optional(),
-    physicalExam: z.string().optional(),
-    medicalDecisionMaking: z.string().optional(),
-    instructions: z.string().optional(),
-    followUp: z.string().optional(),
-    customSections: z.record(z.string()).optional(),
+    subjective: nullableString,
+    objective: nullableString,
+    assessment: nullableString,
+    plan: nullableString,
+    chiefComplaint: nullableString,
+    historyOfPresentIllness: nullableString,
+    reviewOfSystems: nullableString,
+    physicalExam: nullableString,
+    medicalDecisionMaking: nullableString,
+    instructions: nullableString,
+    followUp: nullableString,
+    customSections: z.record(z.string()).nullable().optional(),
   }).passthrough().optional(),
   status: z.enum(['draft', 'completed', 'signed']).optional(),
-  transcription: z.string().optional(),
-  processingTime: z.number().optional(),
+  transcription: z.string().nullable().optional(),
+  audioUrl: z.string().nullable().optional(),
+  processingTime: z.number().nullable().optional(),
 });
 
 export const updateNoteSchema = createNoteSchema.partial();

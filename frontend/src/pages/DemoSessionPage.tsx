@@ -97,13 +97,24 @@ export default function DemoSessionPage() {
 
         toast.dismiss('demo');
 
+        // Sanitize GPT content — strip null / non-string values before sending
+        const sanitizedContent: Record<string, unknown> = {};
+        if (generated.content && typeof generated.content === 'object') {
+          for (const [key, value] of Object.entries(generated.content)) {
+            if (value != null && typeof value === 'string') {
+              sanitizedContent[key] = value;
+            } else if (value != null && typeof value === 'object') {
+              sanitizedContent[key] = value;
+            }
+          }
+        }
+
         const createdNote = await notesApi.create({
           patientName: DEMO_PATIENT,
           dateOfService: new Date().toISOString().split('T')[0],
           template: DEMO_TEMPLATE,
-          content: generated.content,
+          content: sanitizedContent as any,
           transcription: transcribed.transcription,
-          audioUrl: uploaded.url,
         });
 
         const newNote: ClinicalNote = {
@@ -126,7 +137,10 @@ export default function DemoSessionPage() {
       }
     } catch (error: any) {
       toast.dismiss('demo');
-      toast.error(error.message || 'Failed to process demo recording');
+      const msg = error?.details
+        ? `Validation failed: ${error.details.map((d: any) => `${d.field}: ${d.message}`).join(', ')}`
+        : error.message || 'Failed to process demo recording';
+      toast.error(msg);
     } finally {
       setIsProcessing(false);
       resetRecording();

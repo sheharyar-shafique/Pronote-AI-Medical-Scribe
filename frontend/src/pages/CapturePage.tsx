@@ -217,15 +217,28 @@ export default function CapturePage() {
             style: { background: '#92400e', color: '#fef3c7' },
           });
         }
+
+        // Sanitize GPT content — strip null / non-string values before sending
+        const sanitizedContent: Record<string, unknown> = {};
+        if (noteResult.content && typeof noteResult.content === 'object') {
+          for (const [key, value] of Object.entries(noteResult.content)) {
+            if (value != null && typeof value === 'string') {
+              sanitizedContent[key] = value;
+            } else if (value != null && typeof value === 'object') {
+              // keep objects like customSections as-is
+              sanitizedContent[key] = value;
+            }
+            // skip null / undefined / non-string primitives
+          }
+        }
         
         // Step 4: Create the note in the database
         const createdNote = await notesApi.create({
           patientName: patientName || 'Unknown Patient',
           dateOfService: new Date().toISOString().split('T')[0],
           template: selectedTemplate,
-          content: noteResult.content,
+          content: sanitizedContent as any,
           transcription: transcriptionResult.transcription,
-          audioUrl: uploadResult.url,
         });
         
         // Also add to local store for immediate UI update
@@ -250,7 +263,11 @@ export default function CapturePage() {
     } catch (error: any) {
       console.error('Recording processing error:', error);
       toast.dismiss('processing');
-      toast.error(error.message || 'Failed to process recording');
+      // Show specific field errors if available (Zod validation details)
+      const msg = error?.details
+        ? `Validation failed: ${error.details.map((d: any) => `${d.field}: ${d.message}`).join(', ')}`
+        : error.message || 'Failed to process recording';
+      toast.error(msg);
     } finally {
       setIsProcessing(false);
       resetRecording();
