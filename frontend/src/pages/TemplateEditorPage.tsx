@@ -138,12 +138,19 @@ export default function TemplateEditorPage() {
     setIsSaving(true);
     await new Promise(r => setTimeout(r, 600));
 
-    // Build the saved template object
+    // Build the saved template object — include full section settings for AI
     const saved: Template = {
       id: `custom-${Date.now()}` as NoteTemplate,
       name: templateName.trim(),
       description: `Custom version based on ${template?.name ?? 'a template'}`,
       sections: sections.map(s => s.title),
+      sectionSettings: sections.map(s => ({
+        title: s.title,
+        verbosity: s.verbosity,
+        styling: s.styling,
+        content: s.content,
+        stylingInstructions: s.stylingInstructions,
+      })),
       specialty: template?.specialty ?? 'Custom',
       isCustom: true,
       isDefault: false,

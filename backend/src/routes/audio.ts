@@ -184,7 +184,7 @@ router.post('/transcribe', async (req: AuthenticatedRequest, res: Response, next
 // POST /api/audio/generate-note - Generate clinical note from transcription
 router.post('/generate-note', async (req: AuthenticatedRequest, res: Response, next) => {
   try {
-    const { transcription, template, patientName } = req.body;
+    const { transcription, template, patientName, sectionSettings } = req.body;
 
     if (!transcription || !template) {
       throw new AppError('Transcription and template are required', 400);
@@ -204,7 +204,10 @@ router.post('/generate-note', async (req: AuthenticatedRequest, res: Response, n
 
     if (openai) {
       // ── Real AI path ──────────────────────────────────────────────────────
-      const systemPrompt = getSystemPromptForTemplate(template);
+      // Use dynamic prompt if sectionSettings provided, otherwise use template-based prompt
+      const systemPrompt = sectionSettings && sectionSettings.length > 0
+        ? buildDynamicPrompt(sectionSettings)
+        : getSystemPromptForTemplate(template);
       const userMessage = `Generate a clinical note from this transcription:\n\n${transcription}`;
 
       let lastError: Error | null = null;
@@ -354,6 +357,97 @@ router.delete('/files/:id', async (req: AuthenticatedRequest, res: Response, nex
 });
 
 // Helper functions
+
+/**
+ * Build a dynamic AI system prompt from user-configured section settings.
+ * Called when a custom template with sectionSettings is used.
+ */
+interface SectionSetting {
+  title: string;
+  verbosity: 'concise' | 'detailed';
+  styling: 'paragraph' | 'bullet';
+  content: string;
+  stylingInstructions: string;
+}
+
+function buildDynamicPrompt(settings: SectionSetting[]): string {
+  // Map section titles to JSON-safe camelCase keys
+  const sectionKeyMap: Record<string, string> = {
+    'Subjective': 'subjective',
+    'Objective': 'objective',
+    'Assessment': 'assessment',
+    'Plan': 'plan',
+    'Patient Instructions': 'instructions',
+    'Instructions': 'instructions',
+    'Chief Complaint': 'chiefComplaint',
+    'History of Present Illness': 'historyOfPresentIllness',
+    'HPI': 'historyOfPresentIllness',
+    'Review of Systems': 'reviewOfSystems',
+    'Physical Exam': 'physicalExam',
+    'Mental Status Exam': 'physicalExam',
+    'Medical Decision Making': 'medicalDecisionMaking',
+    'Follow-Up': 'followUp',
+  };
+
+  const getKey = (title: string): string => {
+    return sectionKeyMap[title] || title.replace(/[^a-zA-Z0-9]/g, '').replace(/^(.)/, (_, c) => c.toLowerCase());
+  };
+
+  // Build per-section instructions
+  const sectionInstructions = settings.map(s => {
+    const key = getKey(s.title);
+    const verbosityHint = s.verbosity === 'concise'
+      ? 'Keep this section concise — 2-3 focused sentences maximum.'
+      : 'Be thorough and detailed in this section — provide at minimum 4-6 sentences with comprehensive clinical information.';
+    const stylingHint = s.styling === 'bullet'
+      ? 'Format this section as bullet points (use "• " prefix for each point).'
+      : 'Format this section as flowing narrative paragraphs.';
+    const contentHint = s.content
+      ? `Content guidance: ${s.content}`
+      : '';
+    const customHint = s.stylingInstructions
+      ? `Additional instructions: ${s.stylingInstructions}`
+      : '';
+
+    return `- "${key}" (section title: "${s.title}"):
+  ${verbosityHint}
+  ${stylingHint}
+  ${contentHint}
+  ${customHint}`.trim();
+  }).join('\n\n');
+
+  // Build the JSON schema example
+  const jsonKeys = settings.map(s => `  "${getKey(s.title)}": "..."`).join(',\n');
+
+  // Always include instructions
+  const hasInstructions = settings.some(s =>
+    s.title.toLowerCase().includes('instruction') || getKey(s.title) === 'instructions'
+  );
+  const instructionsNote = hasInstructions
+    ? ''
+    : `\n- "instructions": Always include a comprehensive patient instructions section with medications, activity level, warning signs, and follow-up timeline. Format as bullet points.`;
+
+  return `You are an expert medical documentation assistant specializing in thorough clinical documentation.
+Generate a comprehensive clinical note from the given patient-clinician transcription.
+
+Return a JSON object with EXACTLY these fields:
+{
+${jsonKeys}${hasInstructions ? '' : ',\n  "instructions": "..."'}
+}
+
+SECTION-SPECIFIC FORMATTING REQUIREMENTS:
+
+${sectionInstructions}
+${instructionsNote}
+
+IMPORTANT RULES:
+- Return ONLY valid JSON. Do NOT wrap in markdown code blocks.
+- Use proper medical terminology throughout.
+- Every section MUST contain real clinical content derived from the transcription.
+- If the transcription doesn't mention something for a section, write reasonable clinical defaults or note "Not discussed during this encounter."
+- The output MUST respect the formatting preferences specified above (bullet vs paragraph, concise vs detailed).`;
+}
+
 function getSystemPromptForTemplate(template: string): string {
   const DETAIL_INSTRUCTION = `
 IMPORTANT RULES FOR ALL SECTIONS:

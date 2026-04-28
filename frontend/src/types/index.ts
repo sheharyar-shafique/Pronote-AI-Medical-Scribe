@@ -90,11 +90,20 @@ export type NoteTemplate =
   | 'custom'
   | (string & Record<never, never>); // allow custom-<timestamp> IDs
 
+export interface SectionSetting {
+  title: string;
+  verbosity: 'concise' | 'detailed';
+  styling: 'paragraph' | 'bullet';
+  content: string;          // content description / hint for the AI
+  stylingInstructions: string; // extra custom formatting instructions
+}
+
 export interface Template {
   id: NoteTemplate;
   name: string;
   description: string;
   sections: string[];
+  sectionSettings?: SectionSetting[];  // present on custom templates
   specialty: string;
   isCustom?: boolean;
   isDefault?: boolean;

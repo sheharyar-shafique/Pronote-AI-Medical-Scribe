@@ -178,7 +178,8 @@ export default function CapturePage() {
         const noteResult = await audioApi.generateNote(
           transcriptionResult.transcription,
           selectedTemplate,
-          patientName || undefined
+          patientName || undefined,
+          resolvedTemplate?.sectionSettings
         );
 
         toast.dismiss('processing');

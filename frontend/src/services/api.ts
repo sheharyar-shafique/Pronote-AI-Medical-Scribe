@@ -370,10 +370,15 @@ export const audioApi = {
     });
   },
 
-  generateNote: async (transcription: string, template: string, patientName?: string) => {
+  generateNote: async (
+    transcription: string,
+    template: string,
+    patientName?: string,
+    sectionSettings?: Array<{ title: string; verbosity: string; styling: string; content: string; stylingInstructions: string }>
+  ) => {
     return apiFetch<{ content: NoteContent; template: string; source: 'ai' | 'mock' }>('/audio/generate-note', {
       method: 'POST',
-      body: JSON.stringify({ transcription, template, patientName }),
+      body: JSON.stringify({ transcription, template, patientName, sectionSettings }),
     });
   },
 
