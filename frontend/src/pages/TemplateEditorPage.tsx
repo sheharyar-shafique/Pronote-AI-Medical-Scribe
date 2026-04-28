@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { Sidebar } from '../components/layout';
 import { templates as defaultTemplates } from '../data';
+import { templatesApi } from '../services/api';
+import type { CustomTemplate } from '../services/api';
 import toast from 'react-hot-toast';
 import type { Template, NoteTemplate } from '../types';
 
@@ -147,26 +149,35 @@ export default function TemplateEditorPage() {
       isDefault: false,
     };
 
-    // Persist to localStorage — TemplatesPage reads this on mount
+    // Persist to localStorage
+    let allIds: string[] = [];
+    let allCustom: Template[] = [];
     try {
       const prevTemplates: Template[] = JSON.parse(
         localStorage.getItem('pronote_custom_templates') ?? '[]'
       );
-      localStorage.setItem(
-        'pronote_custom_templates',
-        JSON.stringify([...prevTemplates, saved])
-      );
+      allCustom = [...prevTemplates, saved];
+      localStorage.setItem('pronote_custom_templates', JSON.stringify(allCustom));
+
       const prevAdded: string[] = JSON.parse(
         localStorage.getItem('pronote_added_ids') ?? '[]'
       );
-      if (!prevAdded.includes(saved.id)) {
-        localStorage.setItem(
-          'pronote_added_ids',
-          JSON.stringify([...prevAdded, saved.id])
-        );
-      }
+      allIds = prevAdded.includes(saved.id) ? prevAdded : [...prevAdded, saved.id];
+      localStorage.setItem('pronote_added_ids', JSON.stringify(allIds));
     } catch {
-      // localStorage unavailable — silently continue
+      // localStorage unavailable — use in-memory values
+      allIds = [saved.id];
+      allCustom = [saved];
+    }
+
+    // Sync to server so TemplatesPage doesn't overwrite on mount
+    try {
+      await templatesApi.savePreferences(
+        allIds,
+        allCustom as unknown as CustomTemplate[]
+      );
+    } catch {
+      // Server unreachable — localStorage is still there
     }
 
     setIsSaving(false);
