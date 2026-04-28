@@ -24,7 +24,7 @@ export const createNoteSchema = z.object({
   patientName: z.string().min(1, 'Patient name is required'),
   patientId: z.string().optional(),
   dateOfService: z.string().optional(),
-  template: z.enum(['soap', 'psychiatry', 'therapy', 'pediatrics', 'cardiology', 'dermatology', 'orthopedics', 'custom']),
+  template: z.string().min(1, 'Template is required'),
   content: z.object({
     subjective: z.string().optional(),
     objective: z.string().optional(),
@@ -38,7 +38,7 @@ export const createNoteSchema = z.object({
     instructions: z.string().optional(),
     followUp: z.string().optional(),
     customSections: z.record(z.string()).optional(),
-  }).optional(),
+  }).passthrough().optional(),
   status: z.enum(['draft', 'completed', 'signed']).optional(),
   transcription: z.string().optional(),
   processingTime: z.number().optional(),
@@ -57,7 +57,7 @@ export const createTemplateSchema = z.object({
 
 // Settings schema
 export const updateSettingsSchema = z.object({
-  defaultTemplate: z.enum(['soap', 'psychiatry', 'therapy', 'pediatrics', 'cardiology', 'dermatology', 'orthopedics', 'custom']).optional(),
+  defaultTemplate: z.string().optional(),
   autoSave: z.boolean().optional(),
   darkMode: z.boolean().optional(),
   notificationsEnabled: z.boolean().optional(),
