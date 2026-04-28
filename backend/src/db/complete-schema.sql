@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS clinical_notes (
   patient_name VARCHAR(255) NOT NULL,
   patient_id VARCHAR(255),
   date_of_service DATE NOT NULL DEFAULT CURRENT_DATE,
-  template VARCHAR(50) NOT NULL CHECK (template IN ('soap', 'psychiatry', 'therapy', 'pediatrics', 'cardiology', 'dermatology', 'orthopedics', 'custom')),
+  template VARCHAR(100) NOT NULL,
   status VARCHAR(50) DEFAULT 'draft' CHECK (status IN ('draft', 'completed', 'signed')),
   audio_url TEXT,
   transcription TEXT,
