@@ -148,27 +148,101 @@ export default function NoteEditorPage() {
   };
 
   const sectionKeyMap: Record<string, keyof NoteContent> = {
+    // Core SOAP
     'Subjective': 'subjective',
     'Objective': 'objective',
     'Assessment': 'assessment',
     'Plan': 'plan',
+    'Patient Instructions': 'instructions',
+    'Instructions': 'instructions',
+
+    // General / multi-specialty
     'Chief Complaint': 'chiefComplaint',
     'History of Present Illness': 'historyOfPresentIllness',
     'History': 'historyOfPresentIllness',
-    'Mental Status Exam': 'physicalExam',
-    'Physical Exam': 'physicalExam',
     'Review of Systems': 'reviewOfSystems',
+    'Physical Exam': 'physicalExam',
+    'Physical Examination Findings': 'physicalExam',
+    'Assessment & Plan': 'plan',
+    'Follow-Up': 'followUp',
+    'Follow-Up Schedule': 'followUp',
+
+    // Progress Notes
+    'Letter to Patient': 'instructions',
+
+    // Daily Note
+    'Patient Identification': 'chiefComplaint',
+    'Medical History': 'historyOfPresentIllness',
+    'Current Medications': 'reviewOfSystems',
+
+    // HPI
+    'Identifying Information': 'chiefComplaint',
+    'Past Medical History': 'historyOfPresentIllness',
+
+    // Chart Notes
+    'Date & Provider': 'chiefComplaint',
+    'Clinical Findings': 'objective',
+
+    // Chronic Care / Wellness
+    'Patient Information': 'chiefComplaint',
+    'Care Plan': 'plan',
+    'Medications': 'reviewOfSystems',
+    'Goals & Education': 'instructions',
+    'Health Goals': 'chiefComplaint',
+    'Lifestyle Assessment': 'subjective',
+    'Nutrition': 'objective',
+    'Physical Activity': 'assessment',
+    'Mental Wellbeing': 'reviewOfSystems',
+
+    // Psychiatry
+    'Mental Status Exam': 'physicalExam',
+    'Mental Status': 'physicalExam',
+    'Safety Assessment': 'medicalDecisionMaking',
+    'Presenting Problem': 'chiefComplaint',
+    'Diagnosis': 'assessment',
+    'Risk Factors': 'medicalDecisionMaking',
+    'Social History': 'reviewOfSystems',
+
+    // Mental Health
+    'Client Identification': 'chiefComplaint',
+    'Session Narrative': 'subjective',
+    'Clinical Observations': 'objective',
+    'Progress Evaluation': 'assessment',
+    'Plan of Action': 'plan',
+    'Demographics': 'chiefComplaint',
+    'Presenting Concerns': 'subjective',
+    'Psychiatric History': 'historyOfPresentIllness',
+    'Substance Use History': 'reviewOfSystems',
+    'Family History': 'reviewOfSystems',
+    'Diagnosis & Treatment Plan': 'plan',
+
+    // Therapy
     'Session Summary': 'subjective',
     'Interventions': 'assessment',
     'Client Response': 'objective',
+    'Client Presentation': 'subjective',
     'Progress': 'assessment',
+
+    // Pediatrics
     'Growth & Development': 'objective',
+    'Developmental History': 'historyOfPresentIllness',
+
+    // Cardiology
     'Cardiac History': 'historyOfPresentIllness',
     'ECG/Imaging': 'objective',
+    'Diagnostic Findings': 'objective',
+
+    // Dermatology
     'Skin Exam': 'physicalExam',
     'Lesion Description': 'objective',
+    'Distribution': 'physicalExam',
+    'Associated Symptoms': 'reviewOfSystems',
+
+    // Orthopedics
     'Mechanism of Injury': 'historyOfPresentIllness',
     'Imaging': 'objective',
+    'Imaging Findings': 'objective',
+    'Injury Mechanism': 'historyOfPresentIllness',
   };
 
   if (!note) {

@@ -355,94 +355,202 @@ router.delete('/files/:id', async (req: AuthenticatedRequest, res: Response, nex
 
 // Helper functions
 function getSystemPromptForTemplate(template: string): string {
+  const DETAIL_INSTRUCTION = `
+IMPORTANT RULES FOR ALL SECTIONS:
+- Each section must be THOROUGH and DETAILED — at minimum 3-5 sentences per section, more if the transcription warrants it.
+- Never abbreviate or summarize too briefly. Expand on every detail mentioned in the transcription.
+- Use proper medical terminology throughout.
+- If the transcription mentions a symptom, describe onset, duration, severity, aggravating/alleviating factors, and associated symptoms.
+- Physical exam findings should include all systems examined, not just abnormals.
+- The "instructions" field is MANDATORY and must ALWAYS be included. It should contain:
+  1. Medications prescribed with dosage, frequency, and duration
+  2. Activity restrictions or modifications
+  3. Diet or lifestyle recommendations
+  4. Warning signs that require immediate medical attention
+  5. Follow-up appointment timing
+  6. Any referrals given
+- Return ONLY valid JSON. Do NOT wrap in markdown code blocks.
+`;
+
   const prompts: Record<string, string> = {
-    soap: `You are a medical documentation assistant. Generate a SOAP note from the given transcription.
+    soap: `You are an expert medical documentation assistant specializing in thorough clinical documentation.
+Generate a comprehensive SOAP note from the given patient-clinician transcription.
+
+Return a JSON object with ALL of these REQUIRED fields:
+{
+  "subjective": "...",
+  "objective": "...",
+  "assessment": "...",
+  "plan": "...",
+  "instructions": "..."
+}
+
+Field requirements:
+- "subjective": DETAILED patient history — include chief complaint, HPI (onset, location, duration, character, aggravating/alleviating factors, radiation, timing, severity), past medical/surgical history, medications, allergies, family history, social history, and review of systems. Must be thorough.
+- "objective": COMPLETE physical examination — include vitals (BP, HR, RR, Temp, SpO2, weight), general appearance, and ALL body systems examined (HEENT, neck, cardiovascular, respiratory, abdomen, extremities, neurological, skin). Document both normal and abnormal findings.
+- "assessment": Clinical impression with ICD-10 codes when possible. List all diagnoses (primary and secondary). Include clinical reasoning.
+- "plan": Detailed management — medications with dosing, diagnostic workup ordered, referrals, patient education provided, disposition, and follow-up timeline.
+- "instructions": MANDATORY comprehensive patient instructions — medications to take and how, activity level, diet, warning signs requiring emergency care, when to return, and any home care instructions.
+${DETAIL_INSTRUCTION}`,
+
+    psychiatry: `You are an expert psychiatric documentation assistant.
+Generate a thorough psychiatric evaluation note from the transcription.
+
+Return a JSON object with ALL of these REQUIRED fields:
+{
+  "chiefComplaint": "...",
+  "historyOfPresentIllness": "...",
+  "physicalExam": "...",
+  "assessment": "...",
+  "plan": "...",
+  "instructions": "..."
+}
+
+Field requirements:
+- "chiefComplaint": The presenting psychiatric concern in the patient's own words.
+- "historyOfPresentIllness": Detailed psychiatric history — current episode (onset, duration, precipitants, symptom progression), past psychiatric history, hospitalizations, suicide attempts, medication trials, substance use history, trauma history.
+- "physicalExam": Full Mental Status Exam — appearance, behavior, psychomotor activity, speech, mood (patient-stated), affect (observed), thought process, thought content (delusions, suicidal/homicidal ideation, hallucinations), cognition (orientation, memory, concentration), insight, and judgment.
+- "assessment": Psychiatric diagnoses with DSM-5 criteria met, risk assessment (suicide, homicide, self-harm), and functional impairment level.
+- "plan": Medication management with specific drugs/doses/changes, therapy type and frequency, safety plan, crisis resources, lab work, and follow-up schedule.
+- "instructions": MANDATORY — medication instructions, crisis hotline numbers, safety plan steps, therapy homework, sleep hygiene, and when to seek emergency help.
+${DETAIL_INSTRUCTION}`,
+
+    therapy: `You are an expert therapy documentation assistant.
+Generate a detailed therapy session note from the transcription.
+
+Return a JSON object with ALL of these REQUIRED fields:
+{
+  "subjective": "...",
+  "objective": "...",
+  "assessment": "...",
+  "plan": "...",
+  "instructions": "..."
+}
+
+Field requirements:
+- "subjective": Client's self-report — presenting concerns for this session, mood since last visit, life events, stressors, symptom changes, medication adherence, and between-session experiences.
+- "objective": Therapist observations — client's appearance, affect, engagement level, speech, psychomotor behavior, therapeutic rapport, and response to interventions during the session.
+- "assessment": Clinical progress — themes identified, treatment goal progress, therapeutic insights gained, risk factors assessed, diagnostic impressions, and functional status changes.
+- "plan": Next session focus, treatment modifications, skills to develop, referrals, coordination of care, and updated treatment goals.
+- "instructions": MANDATORY — between-session homework assignments, coping skills to practice, journaling prompts, mindfulness exercises, self-care recommendations, and emergency contacts.
+${DETAIL_INSTRUCTION}`,
+
+    pediatrics: `You are an expert pediatric documentation assistant.
+Generate a thorough pediatric clinical note from the transcription.
+
+Return a JSON object with ALL of these REQUIRED fields:
+{
+  "chiefComplaint": "...",
+  "historyOfPresentIllness": "...",
+  "physicalExam": "...",
+  "assessment": "...",
+  "plan": "...",
+  "instructions": "..."
+}
+
+Field requirements:
+- "chiefComplaint": Presenting symptom or concern as reported by parent/caregiver.
+- "historyOfPresentIllness": Detailed symptom history — onset, duration, severity, associated symptoms, exposure history, feeding/sleeping changes, developmental milestones, birth history, immunization status, past medical history.
+- "physicalExam": Age-appropriate exam — growth parameters (weight, height, head circumference with percentiles), vitals, general appearance, HEENT, lungs, heart, abdomen, skin, extremities, neurological, developmental assessment.
+- "assessment": Diagnosis with clinical reasoning, differential diagnoses considered, growth assessment.
+- "plan": Treatment plan — medications with weight-based dosing, follow-up timing, immunizations due, developmental screening, referrals.
+- "instructions": MANDATORY caregiver instructions — medication administration (dose, frequency, how to give), fever management, hydration, activity level, dietary recommendations, warning signs requiring ER visit, return precautions.
+${DETAIL_INSTRUCTION}`,
+
+    cardiology: `You are an expert cardiology documentation assistant.
+Generate a detailed cardiology consultation note from the transcription.
+
+Return a JSON object with ALL of these REQUIRED fields:
+{
+  "chiefComplaint": "...",
+  "historyOfPresentIllness": "...",
+  "physicalExam": "...",
+  "objective": "...",
+  "assessment": "...",
+  "plan": "...",
+  "instructions": "..."
+}
+
+Field requirements:
+- "chiefComplaint": Presenting cardiac symptoms.
+- "historyOfPresentIllness": Detailed cardiac history — symptom description (chest pain characteristics, dyspnea class, palpitations, syncope), cardiac risk factors (HTN, DM, smoking, family hx, lipids), prior cardiac history, interventions, medications.
+- "physicalExam": Cardiovascular examination — JVP, carotid pulses, PMI, heart sounds (S1, S2, murmurs, gallops), lung auscultation, peripheral edema, peripheral pulses.
+- "objective": Diagnostic findings — ECG interpretation, echocardiogram results, stress test, cardiac catheterization, lab values (troponin, BNP, lipid panel).
+- "assessment": Cardiac diagnosis, risk stratification, functional class.
+- "plan": Medication management, lifestyle modifications, procedures planned, cardiac rehab, follow-up schedule.
+- "instructions": MANDATORY — activity level and exercise recommendations, diet (sodium restriction, heart-healthy eating), medication compliance, weight monitoring, warning symptoms (chest pain, SOB, syncope requiring 911), follow-up appointments.
+${DETAIL_INSTRUCTION}`,
+
+    dermatology: `You are an expert dermatology documentation assistant.
+Generate a detailed dermatology consultation note from the transcription.
+
+Return a JSON object with ALL of these REQUIRED fields:
+{
+  "chiefComplaint": "...",
+  "objective": "...",
+  "physicalExam": "...",
+  "assessment": "...",
+  "plan": "...",
+  "instructions": "..."
+}
+
+Field requirements:
+- "chiefComplaint": Presenting skin concern — onset, duration, evolution, prior treatments, family history of skin conditions.
+- "objective": Lesion description — morphology (macule, papule, plaque, nodule, vesicle), color, size in cm, surface characteristics (scaling, crusting, ulceration), border, symmetry.
+- "physicalExam": Distribution and pattern — location, arrangement (grouped, linear, annular), extent, dermoscopic findings if applicable.
+- "assessment": Dermatologic diagnosis with differential diagnoses, biopsy results if applicable.
+- "plan": Treatment — topical medications with application instructions, systemic medications, procedures (biopsy, excision, cryotherapy), phototherapy, referrals.
+- "instructions": MANDATORY — medication application technique, frequency, and duration; sun protection (SPF, clothing, avoidance); wound care; signs of infection; when to return; skincare routine modifications.
+${DETAIL_INSTRUCTION}`,
+
+    orthopedics: `You are an expert orthopedic documentation assistant.
+Generate a detailed orthopedic consultation note from the transcription.
+
+Return a JSON object with ALL of these REQUIRED fields:
+{
+  "chiefComplaint": "...",
+  "historyOfPresentIllness": "...",
+  "physicalExam": "...",
+  "objective": "...",
+  "assessment": "...",
+  "plan": "...",
+  "instructions": "..."
+}
+
+Field requirements:
+- "chiefComplaint": Presenting musculoskeletal complaint.
+- "historyOfPresentIllness": Mechanism of injury or symptom onset — timing, severity progression, prior injuries, prior treatments, functional limitations, occupation, sport participation.
+- "physicalExam": Musculoskeletal exam — inspection, palpation, ROM (active and passive with degrees), strength testing (0-5 scale), neurovascular status (sensation, pulses, capillary refill), special tests (specific to the joint).
+- "objective": Imaging findings — X-ray, MRI, CT interpretations with specific findings.
+- "assessment": Orthopedic diagnosis, severity grading, stability assessment.
+- "plan": Treatment — immobilization type, weight-bearing status, PT/OT referral, surgical planning if indicated, medications, follow-up imaging.
+- "instructions": MANDATORY — weight-bearing restrictions, brace/cast care, icing protocol (20 min on/off), elevation, pain management (medications and schedule), exercises to perform, activities to avoid, signs of complications (increased swelling, numbness, color changes), follow-up timing.
+${DETAIL_INSTRUCTION}`,
+
+    custom: `You are an expert clinical documentation assistant.
+Generate a comprehensive clinical note from the transcription.
+
+Return a JSON object with ALL of these REQUIRED fields:
+{
+  "subjective": "...",
+  "objective": "...",
+  "assessment": "...",
+  "plan": "...",
+  "instructions": "..."
+}
+
+Field requirements:
+- "subjective": Detailed patient history — chief complaint, HPI, past medical history, medications, allergies, social/family history, review of systems.
+- "objective": Complete examination findings — vitals and all relevant systems examined with both normal and abnormal findings documented.
+- "assessment": Clinical diagnoses with reasoning, differential diagnoses, and clinical impression.
+- "plan": Treatment plan — medications, diagnostics, referrals, and follow-up schedule.
+- "instructions": MANDATORY patient instructions — medications, activity modifications, warning signs, diet, follow-up, and when to seek emergency care.
+${DETAIL_INSTRUCTION}`,
+
+    default: `You are an expert clinical documentation assistant. Generate a thorough clinical note from the transcription.
 Return a JSON object with these REQUIRED fields: subjective, objective, assessment, plan, instructions.
-- subjective: Patient's reported symptoms and history
-- objective: Physical examination findings and vitals
-- assessment: Diagnosis and clinical impression
-- plan: Treatment plan including medications, orders, and follow-up
-- instructions: Specific patient instructions (medications to take, activity restrictions, warning signs to watch for, when to return)
-Use professional medical terminology. The 'instructions' field is MANDATORY — always include clear patient education and discharge instructions.`,
-
-    psychiatry: `You are a psychiatric documentation assistant. Generate a psychiatric evaluation note.
-Return a JSON object with these REQUIRED fields: chiefComplaint, historyOfPresentIllness, mentalStatusExam, assessment, plan, instructions.
-- chiefComplaint: Presenting concern
-- historyOfPresentIllness: Detailed psychiatric history and current episode
-- mentalStatusExam: Appearance, behavior, mood, affect, thought process, thought content, cognition, insight, judgment
-- assessment: Psychiatric diagnosis and clinical impression
-- plan: Medication management, therapy referrals, safety planning
-- instructions: Patient instructions including medication guidance, crisis resources, and next steps
-The 'instructions' field is MANDATORY — always provide clear patient directions.`,
-
-    therapy: `You are a therapy documentation assistant. Generate a therapy session note.
-Return a JSON object with these REQUIRED fields: sessionSummary, clientPresentation, interventionsUsed, clientResponse, progressNotes, plan, instructions.
-- sessionSummary: Overview of session content
-- clientPresentation: Client's mental/emotional state at session
-- interventionsUsed: Therapeutic techniques applied
-- clientResponse: Client's engagement and response
-- progressNotes: Progress toward treatment goals
-- plan: Next steps and upcoming session focus
-- instructions: Between-session homework, skills to practice, and self-care recommendations
-The 'instructions' field is MANDATORY.`,
-
-    pediatrics: `You are a pediatric documentation assistant. Generate a pediatric clinical note.
-Return a JSON object with these REQUIRED fields: chiefComplaint, historyOfPresentIllness, developmentalHistory, physicalExam, assessment, plan, instructions.
-- chiefComplaint: Presenting symptom or concern
-- historyOfPresentIllness: Symptom timeline and relevant history
-- developmentalHistory: Developmental milestones, growth, immunizations
-- physicalExam: Age-appropriate examination findings
-- assessment: Diagnosis and clinical impression
-- plan: Treatment plan and follow-up
-- instructions: Parent/caregiver instructions including medication dosing, activity restrictions, warning signs requiring return visit
-The 'instructions' field is MANDATORY — always include clear caregiver guidance.`,
-
-    cardiology: `You are a cardiology documentation assistant. Generate a cardiology consultation note.
-Return a JSON object with these REQUIRED fields: chiefComplaint, cardiacHistory, physicalExam, diagnosticFindings, assessment, plan, instructions.
-- chiefComplaint: Presenting cardiac symptoms
-- cardiacHistory: Cardiac risk factors and history
-- physicalExam: Cardiovascular examination findings
-- diagnosticFindings: ECG, imaging, lab results
-- assessment: Cardiac diagnosis and impression
-- plan: Treatment, medications, procedures, and follow-up
-- instructions: Patient instructions including activity level, diet, medication adherence, warning symptoms requiring emergency care
-The 'instructions' field is MANDATORY.`,
-
-    dermatology: `You are a dermatology documentation assistant. Generate a dermatology consultation note.
-Return a JSON object with these REQUIRED fields: chiefComplaint, lesionDescription, distribution, associatedSymptoms, assessment, plan, instructions.
-- chiefComplaint: Presenting skin concern
-- lesionDescription: Morphology, color, size, surface characteristics
-- distribution: Location and pattern of skin findings
-- associatedSymptoms: Pruritus, pain, or other symptoms
-- assessment: Dermatologic diagnosis
-- plan: Topical/systemic therapy and follow-up
-- instructions: Skincare instructions, medication application directions, sun protection, follow-up timeline, warning signs
-The 'instructions' field is MANDATORY.`,
-
-    orthopedics: `You are an orthopedic documentation assistant. Generate an orthopedic consultation note.
-Return a JSON object with these REQUIRED fields: chiefComplaint, injuryMechanism, physicalExam, imagingFindings, assessment, plan, instructions.
-- chiefComplaint: Presenting musculoskeletal complaint
-- injuryMechanism: Mechanism of injury or onset
-- physicalExam: ROM, strength, neurovascular, special tests
-- imagingFindings: X-ray/MRI findings
-- assessment: Orthopedic diagnosis
-- plan: Treatment including immobilization, PT, surgery if applicable
-- instructions: Activity restrictions, weight-bearing status, icing/elevation, pain management, when to seek emergency care
-The 'instructions' field is MANDATORY.`,
-
-    custom: `You are a clinical documentation assistant. Generate a comprehensive clinical note from the transcription.
-Return a JSON object with these REQUIRED fields: subjective, objective, assessment, plan, instructions, additionalNotes.
-- subjective: Patient history and reported symptoms
-- objective: Examination findings
-- assessment: Diagnosis and impression
-- plan: Treatment and follow-up plan
-- instructions: Clear patient instructions for medications, activities, follow-up, and warning signs
-- additionalNotes: Any other relevant clinical information
-The 'instructions' field is MANDATORY — always include patient education and guidance.`,
-
-    default: `You are a clinical documentation assistant. Generate a clinical note from the transcription.
-Return a JSON object with these REQUIRED fields: subjective, objective, assessment, plan, instructions.
-The 'instructions' field is MANDATORY — always include specific patient instructions for medications, activity, follow-up, and warning signs.`,
+Each field must contain detailed, multi-sentence content. The 'instructions' field is MANDATORY — always include specific patient instructions for medications, activity, follow-up, and warning signs.
+${DETAIL_INSTRUCTION}`,
   };
 
   return prompts[template.toLowerCase()] || prompts.default;
