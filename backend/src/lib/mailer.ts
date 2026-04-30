@@ -1,4 +1,25 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns';
+
+// Belt-and-suspenders: also pin IPv4 here, in case the host's runtime
+// somehow doesn't honour the global dns.setDefaultResultOrder set in
+// the entrypoint. Render's free tier resolves smtp.gmail.com to IPv6
+// addresses it can't actually route, which produces ENETUNREACH.
+function ipv4Lookup(
+  hostname: string,
+  options: any,
+  callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void
+) {
+  if (typeof options === 'function') {
+    callback = options;
+    options = {};
+  }
+  const opts =
+    typeof options === 'number'
+      ? { family: 4 }
+      : { ...(options || {}), family: 4 };
+  return (dns.lookup as any)(hostname, opts, callback);
+}
 
 function createTransporter() {
   return nodemailer.createTransport({
@@ -9,7 +30,15 @@ function createTransporter() {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
-  });
+    // Force IPv4 at the underlying net.connect level
+    family: 4,
+    // Custom DNS lookup that always returns IPv4
+    lookup: ipv4Lookup,
+    // Reasonable timeouts so a hung connection fails fast instead of timing out the request
+    connectionTimeout: 15_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 20_000,
+  } as any);
 }
 
 export async function sendOtpEmail(toEmail: string, otp: string): Promise<void> {
