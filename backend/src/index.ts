@@ -1,4 +1,12 @@
 import 'dotenv/config';
+import dns from 'dns';
+
+// Force IPv4-first DNS resolution. Some hosts (notably Render's free tier) advertise
+// IPv6 addresses but can't actually route them, which surfaces as ENETUNREACH when
+// nodemailer connects to smtp.gmail.com (e.g. forgot-password OTP send). Node 17+ defaults
+// to "verbatim" order which prefers whichever address family DNS returns first.
+dns.setDefaultResultOrder('ipv4first');
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';

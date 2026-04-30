@@ -1,4 +1,11 @@
 import 'dotenv/config';
+import dns from 'dns';
+
+// Force IPv4-first DNS resolution — see backend/src/index.ts for the rationale.
+// Required so nodemailer (forgot-password OTP, 2FA, support emails) can reach
+// smtp.gmail.com on hosts where IPv6 is advertised but unroutable.
+dns.setDefaultResultOrder('ipv4first');
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
