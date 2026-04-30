@@ -187,23 +187,41 @@ export default function CapturePage() {
     }
     setIsProcessing(true);
     try {
-      const audioBlob = await stopRecording();
-      
-      if (audioBlob) {
-        // Step 1: Upload the audio file. Use the recorder's actual mimeType — on iOS this
-        // can be audio/mp4 instead of audio/webm. Hard-coding the extension produced a
-        // file whose name lied about its container, which caused intermittent failures.
-        const blobType = audioBlob.type || 'audio/webm';
-        const ext =
-          blobType.includes('mp4') ? 'mp4'
-          : blobType.includes('ogg') ? 'ogg'
-          : blobType.includes('wav') ? 'wav'
-          : 'webm';
-        const audioFile = new File([audioBlob], `recording-${Date.now()}.${ext}`, { type: blobType });
-        const uploadResult = await audioApi.upload(audioFile);
+      // Long recordings are auto-segmented by the recorder into <=10-min chunks so each
+      // upload stays under Whisper's 25 MB limit. Iterate the segments, upload + transcribe
+      // each in turn, and concatenate the transcripts before generating the note.
+      const segments = await stopRecording();
 
-        // Step 2: Transcribe with OpenAI Whisper
-        const transcriptionResult = await audioApi.transcribe(uploadResult.id);
+      if (segments && segments.length > 0) {
+        const transcripts: string[] = [];
+
+        for (let i = 0; i < segments.length; i++) {
+          const segBlob = segments[i];
+          const blobType = segBlob.type || 'audio/webm';
+          const ext =
+            blobType.includes('mp4') ? 'mp4'
+            : blobType.includes('ogg') ? 'ogg'
+            : blobType.includes('wav') ? 'wav'
+            : 'webm';
+          const segFile = new File(
+            [segBlob],
+            `recording-${Date.now()}-${i + 1}of${segments.length}.${ext}`,
+            { type: blobType }
+          );
+          const uploadResult = await audioApi.upload(segFile);
+          const transcriptionResult = await audioApi.transcribe(uploadResult.id);
+          if (transcriptionResult.transcription?.trim()) {
+            transcripts.push(transcriptionResult.transcription.trim());
+          }
+        }
+
+        if (transcripts.length === 0) {
+          throw new Error('Transcription returned no text — the recording may have been silent.');
+        }
+
+        // Synthesize a single transcription for note generation. Two newlines between
+        // segments so the model can see the boundary without treating it as new speaker.
+        const transcriptionResult = { transcription: transcripts.join('\n\n') };
 
         // Step 3: Generate clinical note with GPT-4. Pull any saved Patient Context AND
         // saved Treatment Plan for this patient (set on /patients/:name) and forward both

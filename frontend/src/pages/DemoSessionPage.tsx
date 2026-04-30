@@ -79,12 +79,36 @@ export default function DemoSessionPage() {
     }
     setIsProcessing(true);
     try {
-      const audioBlob = await stopRecording();
-      if (audioBlob) {
-        const file = new File([audioBlob], `demo-${Date.now()}.webm`, { type: 'audio/webm' });
-        const uploaded = await audioApi.upload(file);
+      // Long recordings come back as multiple <=10-min segments; transcribe each in turn
+      // and concatenate. Demo sessions are short, so this is usually a single segment.
+      const segments = await stopRecording();
+      if (segments && segments.length > 0) {
+        const transcripts: string[] = [];
+        for (let i = 0; i < segments.length; i++) {
+          const segBlob = segments[i];
+          const blobType = segBlob.type || 'audio/webm';
+          const ext =
+            blobType.includes('mp4') ? 'mp4'
+            : blobType.includes('ogg') ? 'ogg'
+            : blobType.includes('wav') ? 'wav'
+            : 'webm';
+          const file = new File(
+            [segBlob],
+            `demo-${Date.now()}-${i + 1}of${segments.length}.${ext}`,
+            { type: blobType }
+          );
+          const uploaded = await audioApi.upload(file);
+          const transcribed = await audioApi.transcribe(uploaded.id);
+          if (transcribed.transcription?.trim()) {
+            transcripts.push(transcribed.transcription.trim());
+          }
+        }
 
-        const transcribed = await audioApi.transcribe(uploaded.id);
+        if (transcripts.length === 0) {
+          throw new Error('Transcription returned no text — the recording may have been silent.');
+        }
+
+        const transcribed = { transcription: transcripts.join('\n\n') };
 
         const generated = await audioApi.generateNote(
           transcribed.transcription,
