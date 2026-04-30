@@ -20,9 +20,14 @@ import {
   ThumbsDown,
   Save,
   AlertCircle,
+  Sparkles,
+  PencilLine,
+  Trash2,
+  RefreshCw,
 } from 'lucide-react';
 import { Sidebar } from '../components/layout';
 import { useNotesStore } from '../store';
+import { audioApi } from '../services/api';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import type { ClinicalNote, NoteContent } from '../types';
@@ -108,6 +113,28 @@ function savePatientContext(name: string, context: string) {
       localStorage.setItem(contextStorageKey(name), context);
     } else {
       localStorage.removeItem(contextStorageKey(name));
+    }
+  } catch {}
+}
+
+function treatmentPlanStorageKey(name: string) {
+  return `pronote_patient_treatment_plan_${name.toLowerCase().replace(/\s+/g, '_')}`;
+}
+
+function loadTreatmentPlan(name: string): string {
+  try {
+    return localStorage.getItem(treatmentPlanStorageKey(name)) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function saveTreatmentPlanToStorage(name: string, plan: string) {
+  try {
+    if (plan.trim()) {
+      localStorage.setItem(treatmentPlanStorageKey(name), plan);
+    } else {
+      localStorage.removeItem(treatmentPlanStorageKey(name));
     }
   } catch {}
 }
@@ -530,12 +557,17 @@ export default function PatientPage() {
               </div>
             )}
 
-            {(activeTab === 'treatment' || activeTab === 'reports') && (
+            {activeTab === 'treatment' && (
+              <TreatmentPlanPanel
+                patientName={patientName}
+                notes={patientNotes}
+              />
+            )}
+
+            {activeTab === 'reports' && (
               <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-10 text-center">
                 <ClipboardList size={36} className="mx-auto mb-4 text-slate-500" />
-                <p className="text-white font-medium mb-2">
-                  {activeTab === 'treatment' ? 'Treatment Plan' : 'Reports'} coming soon
-                </p>
+                <p className="text-white font-medium mb-2">Reports coming soon</p>
                 <p className="text-slate-400 text-sm">This section will be available in an upcoming update.</p>
               </div>
             )}
@@ -676,6 +708,311 @@ function PatientNotesTable({ notes, onOpen }: PatientNotesTableProps) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Treatment Plan Panel ────────────────────────────────────────────────────
+type TreatmentPlanMode = 'choose' | 'manual' | 'auto-select' | 'view';
+
+interface TreatmentPlanPanelProps {
+  patientName: string;
+  notes: ClinicalNote[];
+}
+
+function TreatmentPlanPanel({ patientName, notes }: TreatmentPlanPanelProps) {
+  const [savedPlan, setSavedPlan] = useState<string>(() => loadTreatmentPlan(patientName));
+  const initialMode: TreatmentPlanMode = savedPlan ? 'view' : 'choose';
+  const [mode, setMode] = useState<TreatmentPlanMode>(initialMode);
+  const [draft, setDraft] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const toggleNote = (id: string) => {
+    setSelectedNoteIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else if (next.size < 3) {
+        next.add(id);
+      } else {
+        toast.error('Choose up to 3 notes.');
+      }
+      return next;
+    });
+  };
+
+  const persistPlan = (plan: string) => {
+    saveTreatmentPlanToStorage(patientName, plan);
+    setSavedPlan(plan);
+  };
+
+  const handleSaveManual = async () => {
+    if (!draft.trim()) {
+      toast.error('Treatment plan is empty.');
+      return;
+    }
+    setIsSaving(true);
+    await new Promise(r => setTimeout(r, 250));
+    persistPlan(draft.trim());
+    setIsSaving(false);
+    setIsEditing(false);
+    setMode('view');
+    toast.success('Treatment plan saved');
+  };
+
+  const handleGenerateFromNotes = async () => {
+    if (selectedNoteIds.size === 0) {
+      toast.error('Select at least 1 note.');
+      return;
+    }
+    setIsGenerating(true);
+    try {
+      const { plan } = await audioApi.generateTreatmentPlan(
+        Array.from(selectedNoteIds),
+        patientName
+      );
+      persistPlan(plan);
+      setMode('view');
+      toast.success('Treatment plan generated');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to generate treatment plan');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleEdit = () => {
+    setDraft(savedPlan);
+    setIsEditing(true);
+    setMode('manual');
+  };
+
+  const handleDelete = () => {
+    if (!confirm('Delete this treatment plan?')) return;
+    persistPlan('');
+    setMode('choose');
+    setDraft('');
+    setSelectedNoteIds(new Set());
+    toast.success('Treatment plan deleted');
+  };
+
+  // ── View ────────────────────────────────────────────────────────────────
+  return (
+    <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6 sm:p-8">
+      <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">
+        {savedPlan && mode === 'view'
+          ? `Treatment plan for ${patientName}`
+          : `Create a treatment plan for ${patientName}`}
+      </h2>
+      {mode !== 'view' && (
+        <>
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Generate a treatment plan from previous notes or write it manually.
+          </p>
+          <p className="text-sm text-slate-400 leading-relaxed mb-6">
+            Future notes for this patient will take this treatment plan into consideration.
+          </p>
+        </>
+      )}
+
+      {/* Choose */}
+      {mode === 'choose' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+          <button
+            onClick={() => {
+              if (notes.length === 0) {
+                toast.error('No notes available for this patient yet.');
+                return;
+              }
+              setSelectedNoteIds(new Set());
+              setMode('auto-select');
+            }}
+            className="bg-white/[0.04] border border-white/[0.1] hover:border-emerald-400/40 hover:bg-emerald-500/[0.04] rounded-2xl p-6 text-left transition-all group"
+          >
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-bold rounded-full mb-4">
+              <Sparkles size={11} /> Automatic
+            </span>
+            <h3 className="text-lg font-bold text-white mb-1.5 group-hover:text-emerald-300 transition-colors">
+              Generate from notes
+            </h3>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              Choose 1–3 notes associated with this patient to generate a treatment plan.
+            </p>
+          </button>
+
+          <button
+            onClick={() => {
+              setDraft('');
+              setIsEditing(false);
+              setMode('manual');
+            }}
+            className="bg-white/[0.04] border border-white/[0.1] hover:border-emerald-400/40 hover:bg-emerald-500/[0.04] rounded-2xl p-6 text-left transition-all group"
+          >
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/[0.06] border border-white/[0.15] text-slate-300 text-xs font-bold rounded-full mb-4">
+              <PencilLine size={11} /> Manual
+            </span>
+            <h3 className="text-lg font-bold text-white mb-1.5 group-hover:text-emerald-300 transition-colors">
+              Write your own
+            </h3>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              Write your own treatment plan. You can paste an existing treatment plan.
+            </p>
+          </button>
+        </div>
+      )}
+
+      {/* Manual */}
+      {mode === 'manual' && (
+        <div className="mt-2">
+          <label className="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">
+            {isEditing ? 'Edit treatment plan' : 'Write treatment plan'}
+          </label>
+          <textarea
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            rows={12}
+            placeholder="e.g.,&#10;1. Lifestyle: low-sodium diet, 30-min walk daily, weight loss 5–10 lb over 3 months.&#10;2. Medication: continue lisinopril 10mg QD; recheck BP in 6 weeks.&#10;3. Monitoring: home BP log twice weekly; follow up in clinic in 3 months.&#10;4. Goals: HbA1c < 7.0; LDL < 100."
+            className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.12] rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/40 transition-all text-sm resize-y leading-relaxed font-mono"
+          />
+          <div className="flex justify-end gap-3 mt-5">
+            <button
+              onClick={() => {
+                setMode(savedPlan ? 'view' : 'choose');
+                setIsEditing(false);
+              }}
+              className="px-4 py-2.5 border border-white/20 text-slate-300 rounded-xl hover:bg-white/10 font-semibold text-sm transition-all"
+            >
+              Cancel
+            </button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={handleSaveManual}
+              disabled={isSaving}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/25 hover:opacity-90 disabled:opacity-60 transition-all"
+            >
+              {isSaving ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                <>
+                  <Save size={15} />
+                  Save Plan
+                </>
+              )}
+            </motion.button>
+          </div>
+        </div>
+      )}
+
+      {/* Auto: select notes */}
+      {mode === 'auto-select' && (
+        <div className="mt-2">
+          <p className="text-sm text-slate-300 mb-3">
+            Select 1–3 notes to base the plan on. Selected: <span className="font-semibold text-white">{selectedNoteIds.size}</span>/3
+          </p>
+          <ul className="border border-white/[0.08] rounded-xl divide-y divide-white/[0.06] max-h-80 overflow-y-auto bg-white/[0.02] mb-5">
+            {notes.map(note => {
+              const checked = selectedNoteIds.has(note.id);
+              return (
+                <li key={note.id}>
+                  <label
+                    className={`flex items-start gap-3 p-3 cursor-pointer transition-colors ${
+                      checked ? 'bg-emerald-500/[0.08]' : 'hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleNote(note.id)}
+                      className="mt-1 w-4 h-4 rounded border-white/20 bg-white/[0.04] accent-emerald-500 cursor-pointer"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{deriveTitle(note)}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {format(new Date(note.createdAt), 'MMM d, yyyy, h:mm a')}
+                        {note.durationSeconds ? ` · ${formatDuration(note.durationSeconds)}` : ''}
+                      </p>
+                    </div>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setMode('choose')}
+              className="px-4 py-2.5 border border-white/20 text-slate-300 rounded-xl hover:bg-white/10 font-semibold text-sm transition-all"
+            >
+              Cancel
+            </button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={handleGenerateFromNotes}
+              disabled={isGenerating || selectedNoteIds.size === 0}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-500/25 hover:opacity-90 disabled:opacity-50 transition-all"
+            >
+              {isGenerating ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <Sparkles size={15} />
+                  Generate Plan
+                </>
+              )}
+            </motion.button>
+          </div>
+        </div>
+      )}
+
+      {/* Saved: view */}
+      {mode === 'view' && (
+        <div className="mt-2">
+          <p className="text-xs text-slate-400 leading-relaxed mb-4">
+            Future notes for this patient will take this treatment plan into consideration.
+          </p>
+          <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5 mb-5 max-h-96 overflow-y-auto">
+            <pre className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap font-sans">
+              {savedPlan}
+            </pre>
+          </div>
+          <div className="flex flex-wrap justify-end gap-3">
+            <button
+              onClick={handleDelete}
+              className="flex items-center gap-2 px-4 py-2.5 border border-red-500/40 text-red-400 rounded-xl hover:bg-red-500/10 font-semibold text-sm transition-all"
+            >
+              <Trash2 size={15} />
+              Delete
+            </button>
+            <button
+              onClick={() => {
+                setSelectedNoteIds(new Set());
+                setMode('auto-select');
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 border border-blue-400/40 text-blue-300 rounded-xl hover:bg-blue-500/10 font-semibold text-sm transition-all"
+            >
+              <RefreshCw size={15} />
+              Regenerate from notes
+            </button>
+            <button
+              onClick={handleEdit}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/25 hover:opacity-90 transition-all"
+            >
+              <PencilLine size={15} />
+              Edit
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

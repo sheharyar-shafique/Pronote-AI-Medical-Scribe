@@ -377,11 +377,19 @@ export const audioApi = {
     template: string,
     patientName?: string,
     sectionSettings?: Array<{ title: string; verbosity: string; styling: string; content: string; stylingInstructions: string }>,
-    patientContext?: string
+    patientContext?: string,
+    treatmentPlan?: string
   ) => {
     return apiFetch<{ content: NoteContent; template: string; source: 'ai' | 'mock' }>('/audio/generate-note', {
       method: 'POST',
-      body: JSON.stringify({ transcription, template, patientName, sectionSettings, patientContext }),
+      body: JSON.stringify({ transcription, template, patientName, sectionSettings, patientContext, treatmentPlan }),
+    });
+  },
+
+  generateTreatmentPlan: async (noteIds: string[], patientName?: string) => {
+    return apiFetch<{ plan: string; source: 'ai' | 'mock' }>('/audio/generate-treatment-plan', {
+      method: 'POST',
+      body: JSON.stringify({ noteIds, patientName }),
     });
   },
 

@@ -247,7 +247,7 @@ router.post('/transcribe', async (req: AuthenticatedRequest, res: Response, next
 // POST /api/audio/generate-note - Generate clinical note from transcription
 router.post('/generate-note', async (req: AuthenticatedRequest, res: Response, next) => {
   try {
-    const { transcription, template, patientName, sectionSettings, patientContext } = req.body;
+    const { transcription, template, patientName, sectionSettings, patientContext, treatmentPlan } = req.body;
 
     if (!transcription || !template) {
       throw new AppError('Transcription and template are required', 400);
@@ -272,14 +272,30 @@ router.post('/generate-note', async (req: AuthenticatedRequest, res: Response, n
         ? buildDynamicPrompt(sectionSettings)
         : getSystemPromptForTemplate(template);
 
-      // Patient Context (set on the patient's profile page) is durable, applies to every
-      // note for this patient, and may include known conditions / goals / details that
-      // never come up in conversation. Prepend it to the transcription so the AI can use
-      // it without re-prompting per recording.
+      // Patient Context + Treatment Plan (both set on the patient's profile page) are
+      // durable, apply to every note for this patient, and may include known conditions /
+      // goals / planned care that never come up in conversation. Prepend them to the
+      // transcription so the AI can use them without re-prompting per recording.
       const trimmedContext =
         typeof patientContext === 'string' ? patientContext.trim() : '';
-      const userMessage = trimmedContext
-        ? `Persistent patient context (apply to every note for this patient — combine with the transcription, do not output verbatim):\n${trimmedContext}\n\nGenerate a clinical note from this transcription:\n\n${transcription}`
+      const trimmedPlan =
+        typeof treatmentPlan === 'string' ? treatmentPlan.trim() : '';
+
+      const preambleParts: string[] = [];
+      if (trimmedContext) {
+        preambleParts.push(
+          `Persistent patient context (apply to every note for this patient — combine with the transcription, do not output verbatim):\n${trimmedContext}`
+        );
+      }
+      if (trimmedPlan) {
+        preambleParts.push(
+          `Active treatment plan for this patient (reflect ongoing therapies / goals / monitoring in the relevant sections; update or note progress against it where the transcription warrants):\n${trimmedPlan}`
+        );
+      }
+      const preamble = preambleParts.join('\n\n');
+
+      const userMessage = preamble
+        ? `${preamble}\n\nGenerate a clinical note from this transcription:\n\n${transcription}`
         : `Generate a clinical note from this transcription:\n\n${transcription}`;
 
       let lastError: Error | null = null;
@@ -364,6 +380,113 @@ router.post('/generate-note', async (req: AuthenticatedRequest, res: Response, n
       template,
       source, // 'ai' = real GPT output, 'mock' = dev placeholder
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/audio/generate-treatment-plan — Synthesize a treatment plan from 1–3 notes
+router.post('/generate-treatment-plan', async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const { noteIds, patientName } = req.body as { noteIds?: string[]; patientName?: string };
+
+    if (!Array.isArray(noteIds) || noteIds.length === 0) {
+      throw new AppError('At least one note ID is required.', 400);
+    }
+    if (noteIds.length > 3) {
+      throw new AppError('You can base a treatment plan on at most 3 notes.', 400);
+    }
+
+    // Fetch the user's notes by ID — RLS ensures cross-user access can't happen, but
+    // we still scope by user_id explicitly so a malicious payload can't expose another
+    // user's notes via predictable ids.
+    const { data: notes, error: fetchError } = await supabase
+      .from('clinical_notes')
+      .select('id, patient_name, date_of_service, template, note_contents(*)')
+      .in('id', noteIds)
+      .eq('user_id', req.user!.id);
+
+    if (fetchError) throw fetchError;
+    if (!notes || notes.length === 0) {
+      throw new AppError('Notes not found.', 404);
+    }
+
+    // Build a compact corpus the model can reason over.
+    const corpus = notes.map((n: any, i: number) => {
+      const c = n.note_contents || {};
+      const fields = [
+        ['Subjective', c.subjective],
+        ['Objective', c.objective],
+        ['Chief Complaint', c.chief_complaint],
+        ['HPI', c.history_of_present_illness],
+        ['Physical Exam', c.physical_exam],
+        ['Assessment', c.assessment],
+        ['Plan', c.plan],
+        ['Patient Instructions', c.instructions],
+      ]
+        .filter(([, v]) => typeof v === 'string' && (v as string).trim())
+        .map(([label, v]) => `${label}: ${v}`)
+        .join('\n');
+      return `### Note ${i + 1} (${n.template}, ${n.date_of_service ?? 'undated'})\n${fields || '(empty)'}`;
+    }).join('\n\n');
+
+    let plan: string;
+    let source: 'ai' | 'mock' = 'ai';
+
+    if (openai) {
+      const systemPrompt = `You are an expert clinician composing a longitudinal treatment plan for a single patient based on their existing clinical notes.
+
+Output a clear, actionable treatment plan as plain text (no markdown headers like ##; use simple numbered or bulleted lines). Cover, where the notes support it:
+
+1. Diagnoses and problem list (active conditions, severity, stability)
+2. Lifestyle / behavioral interventions (diet, exercise, sleep, substance use)
+3. Medications (current regimen, target adjustments, when to titrate)
+4. Diagnostics / labs (what to monitor, frequency, target values)
+5. Specialist referrals (who, why, when)
+6. Patient goals (specific, measurable, time-bound where possible)
+7. Follow-up cadence and red-flag warning signs
+
+Use only information that is supported by the provided notes — do not invent diagnoses, medications, or test results. If a section has no supporting evidence in the notes, omit it. Keep it concise but specific. Do not echo the notes verbatim.`;
+
+      const userMessage = `Patient: ${patientName || '(unnamed)'}\n\nNotes:\n\n${corpus}\n\nWrite the treatment plan now.`;
+
+      try {
+        const response = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage },
+          ],
+          temperature: 0.3,
+        });
+        plan = (response.choices[0].message.content || '').trim();
+        if (!plan) throw new Error('Empty response');
+      } catch (err: any) {
+        // Fallback to gpt-4o-mini
+        try {
+          const response = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userMessage },
+            ],
+            temperature: 0.3,
+          });
+          plan = (response.choices[0].message.content || '').trim();
+          if (!plan) throw new Error('Empty response');
+        } catch (innerErr: any) {
+          throw new AppError(
+            innerErr?.error?.message || innerErr?.message || 'Failed to generate treatment plan',
+            502
+          );
+        }
+      }
+    } else {
+      source = 'mock';
+      plan = `1. Continue current management as documented in the most recent visit.\n2. Lifestyle: nutrition counseling and 30 minutes of moderate activity 5 days/week.\n3. Monitoring: track relevant vitals and symptom diary between visits.\n4. Follow-up: return to clinic in 4 weeks; sooner if new or worsening symptoms.`;
+    }
+
+    res.json({ plan, source });
   } catch (error) {
     next(error);
   }

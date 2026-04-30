@@ -205,14 +205,17 @@ export default function CapturePage() {
         // Step 2: Transcribe with OpenAI Whisper
         const transcriptionResult = await audioApi.transcribe(uploadResult.id);
 
-        // Step 3: Generate clinical note with GPT-4. Pull any saved Patient Context for
-        // this patient (set on /patients/:name → Patient Context tab) and forward it so
-        // the AI can incorporate known conditions / goals not mentioned in the recording.
+        // Step 3: Generate clinical note with GPT-4. Pull any saved Patient Context AND
+        // saved Treatment Plan for this patient (set on /patients/:name) and forward both
+        // so the AI can incorporate known conditions / goals / planned care not mentioned
+        // in the recording.
         let savedContext = '';
+        let savedTreatmentPlan = '';
         if (patientName) {
           try {
-            const key = `pronote_patient_context_${patientName.toLowerCase().replace(/\s+/g, '_')}`;
-            savedContext = localStorage.getItem(key) ?? '';
+            const slug = patientName.toLowerCase().replace(/\s+/g, '_');
+            savedContext = localStorage.getItem(`pronote_patient_context_${slug}`) ?? '';
+            savedTreatmentPlan = localStorage.getItem(`pronote_patient_treatment_plan_${slug}`) ?? '';
           } catch {}
         }
 
@@ -221,7 +224,8 @@ export default function CapturePage() {
           selectedTemplate,
           patientName || undefined,
           resolvedTemplate?.sectionSettings,
-          savedContext.trim() || undefined
+          savedContext.trim() || undefined,
+          savedTreatmentPlan.trim() || undefined
         );
 
         // Warn if server returned mock/placeholder content instead of real AI
