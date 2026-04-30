@@ -79,26 +79,22 @@ export default function UploadPage() {
     
     try {
       // Step 1: Upload the audio file
-      toast.loading('Uploading audio file...', { id: 'upload-process' });
       setProgress(20);
       const uploadResult = await audioApi.upload(file);
-      
+
       // Step 2: Transcribe with OpenAI Whisper
-      toast.loading('Transcribing with AI...', { id: 'upload-process' });
       setProgress(50);
       const transcriptionResult = await audioApi.transcribe(uploadResult.id);
-      
+
       // Step 3: Generate clinical note with GPT-4
-      toast.loading('Generating clinical note...', { id: 'upload-process' });
       setProgress(80);
       const noteResult = await audioApi.generateNote(
         transcriptionResult.transcription,
         selectedTemplate,
         patientName || undefined
       );
-      
+
       setProgress(100);
-      toast.dismiss('upload-process');
 
       // Sanitize GPT content — coerce null/undefined to empty string so the section
       // still renders in the editor (otherwise dropping the key makes the body blank).
@@ -144,7 +140,6 @@ export default function UploadPage() {
       navigate(`/notes/${newNote.id}`);
     } catch (error: any) {
       console.error('Upload processing error:', error);
-      toast.dismiss('upload-process');
       const msg = error?.details
         ? `Validation failed: ${error.details.map((d: any) => `${d.field}: ${d.message}`).join(', ')}`
         : error.message || 'Failed to process audio file';

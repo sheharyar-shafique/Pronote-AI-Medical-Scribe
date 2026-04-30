@@ -222,15 +222,11 @@ export default function DictationPage() {
     
     try {
       // Generate clinical note using real AI
-      toast.loading('Generating clinical note with AI...', { id: 'dictation-process' });
-      
       const noteResult = await audioApi.generateNote(
         transcript,
         selectedTemplate,
         patientName || undefined
       );
-      
-      toast.dismiss('dictation-process');
 
       // Sanitize GPT content — coerce null/undefined to empty string so the section
       // still renders in the editor (otherwise dropping the key makes the body blank).
@@ -275,7 +271,6 @@ export default function DictationPage() {
       navigate(`/notes/${newNote.id}`);
     } catch (error: any) {
       console.error('Dictation processing error:', error);
-      toast.dismiss('dictation-process');
       const msg = error?.details
         ? `Validation failed: ${error.details.map((d: any) => `${d.field}: ${d.message}`).join(', ')}`
         : error.message || 'Failed to generate note';

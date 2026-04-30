@@ -193,7 +193,6 @@ export default function CapturePage() {
         // Step 1: Upload the audio file. Use the recorder's actual mimeType — on iOS this
         // can be audio/mp4 instead of audio/webm. Hard-coding the extension produced a
         // file whose name lied about its container, which caused intermittent failures.
-        toast.loading('Uploading audio...', { id: 'processing' });
         const blobType = audioBlob.type || 'audio/webm';
         const ext =
           blobType.includes('mp4') ? 'mp4'
@@ -202,21 +201,17 @@ export default function CapturePage() {
           : 'webm';
         const audioFile = new File([audioBlob], `recording-${Date.now()}.${ext}`, { type: blobType });
         const uploadResult = await audioApi.upload(audioFile);
-        
+
         // Step 2: Transcribe with OpenAI Whisper
-        toast.loading('Transcribing with AI...', { id: 'processing' });
         const transcriptionResult = await audioApi.transcribe(uploadResult.id);
-        
+
         // Step 3: Generate clinical note with GPT-4
-        toast.loading('Generating clinical note...', { id: 'processing' });
         const noteResult = await audioApi.generateNote(
           transcriptionResult.transcription,
           selectedTemplate,
           patientName || undefined,
           resolvedTemplate?.sectionSettings
         );
-
-        toast.dismiss('processing');
 
         // Warn if server returned mock/placeholder content instead of real AI
         if (noteResult.source === 'mock') {
@@ -272,7 +267,6 @@ export default function CapturePage() {
       }
     } catch (error: any) {
       console.error('Recording processing error:', error);
-      toast.dismiss('processing');
       // Show specific field errors if available (Zod validation details)
       const msg = error?.details
         ? `Validation failed: ${error.details.map((d: any) => `${d.field}: ${d.message}`).join(', ')}`

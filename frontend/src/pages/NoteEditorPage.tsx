@@ -19,8 +19,50 @@ import { useNotesStore, useSettingsStore } from '../store';
 import { templates } from '../data';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import type { ClinicalNote, NoteContent } from '../types';
+import type { ClinicalNote, NoteContent, Template } from '../types';
 import { getAuthToken } from '../services/api';
+
+// Build a short topic line from the generated note content — picks the first
+// non-empty signal in priority order so it works for any template.
+function deriveNoteTopic(content: NoteContent | undefined): string {
+  if (!content) return '';
+  const candidates = [
+    content.chiefComplaint,
+    content.assessment,
+    content.subjective,
+    content.historyOfPresentIllness,
+    content.plan,
+  ];
+  for (const raw of candidates) {
+    if (typeof raw !== 'string') continue;
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    // Take the first sentence / line and cap the length so it stays one-liner-friendly.
+    const firstSentence = trimmed.split(/(?<=[.!?])\s+|\n/)[0].trim();
+    return firstSentence.length > 90 ? firstSentence.slice(0, 87) + '…' : firstSentence;
+  }
+  return '';
+}
+
+// Resolve a template id (built-in or custom) to a friendly display name.
+function resolveTemplateName(templateId: string | undefined): string {
+  if (!templateId) return '';
+  const builtIn = templates.find(t => t.id === templateId);
+  if (builtIn) return builtIn.name;
+  try {
+    const customs: Template[] = JSON.parse(
+      localStorage.getItem('pronote_custom_templates') ?? '[]'
+    );
+    const match = customs.find(t => t.id === templateId);
+    if (match) return match.name;
+  } catch {}
+  // Fallback: humanize the id (e.g. "progress-notes" → "Progress Notes").
+  return templateId
+    .replace(/^custom-\d+$/, 'Custom')
+    .split('-')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
 
 export default function NoteEditorPage() {
   const { id } = useParams();
@@ -279,24 +321,30 @@ export default function NoteEditorPage() {
             <div>
               <div className="flex items-center gap-3 mb-1">
                 <h1 className="text-2xl font-bold text-white">{note.patientName}</h1>
-                <Badge 
+                <Badge
                   variant={
-                    note.status === 'signed' 
-                      ? 'success' 
-                      : note.status === 'completed' 
-                      ? 'info' 
+                    note.status === 'signed'
+                      ? 'success'
+                      : note.status === 'completed'
+                      ? 'info'
                       : 'warning'
                   }
                 >
                   {note.status}
                 </Badge>
               </div>
+              {(() => {
+                const topic = deriveNoteTopic(content);
+                return topic ? (
+                  <p className="text-sm text-slate-300 mb-1.5 italic">{topic}</p>
+                ) : null;
+              })()}
               <div className="flex items-center gap-4 text-sm text-slate-400">
                 <span className="flex items-center gap-1">
                   <Clock size={14} />
                   {format(new Date(note.dateOfService), 'MMMM d, yyyy')}
                 </span>
-                <span className="capitalize">{note.template} Template</span>
+                <span>{resolveTemplateName(note.template)} Template</span>
               </div>
             </div>
 

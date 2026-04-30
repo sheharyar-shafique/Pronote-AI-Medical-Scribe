@@ -81,21 +81,16 @@ export default function DemoSessionPage() {
     try {
       const audioBlob = await stopRecording();
       if (audioBlob) {
-        toast.loading('Uploading demo audio…', { id: 'demo' });
         const file = new File([audioBlob], `demo-${Date.now()}.webm`, { type: 'audio/webm' });
         const uploaded = await audioApi.upload(file);
 
-        toast.loading('Transcribing…', { id: 'demo' });
         const transcribed = await audioApi.transcribe(uploaded.id);
 
-        toast.loading('Generating clinical note…', { id: 'demo' });
         const generated = await audioApi.generateNote(
           transcribed.transcription,
           DEMO_TEMPLATE,
           DEMO_PATIENT,
         );
-
-        toast.dismiss('demo');
 
         // Sanitize GPT content — coerce null/undefined to empty string so the section
         // still renders in the editor (otherwise dropping the key makes the body blank).
@@ -139,7 +134,6 @@ export default function DemoSessionPage() {
         navigate(`/notes/${newNote.id}`);
       }
     } catch (error: any) {
-      toast.dismiss('demo');
       const msg = error?.details
         ? `Validation failed: ${error.details.map((d: any) => `${d.field}: ${d.message}`).join(', ')}`
         : error.message || 'Failed to process demo recording';
