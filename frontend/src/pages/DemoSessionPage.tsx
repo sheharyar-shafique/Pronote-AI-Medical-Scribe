@@ -10,7 +10,7 @@ import type { ClinicalNote } from '../types';
 
 const DEMO_PATIENT = 'Sarah Brown';
 const DEMO_TEMPLATE = 'soap' as const;
-const MIN_RECORDING_SECONDS = 30;
+const MIN_RECORDING_SECONDS = 20;
 
 const DEMO_SCRIPT: { role: 'You' | 'Patient'; text: string }[] = [
   { role: 'You',     text: 'Hi Ms. Brown. What brings you in today?' },

@@ -23,7 +23,7 @@ import { audioApi, notesApi, templatesApi } from '../services/api';
 import toast from 'react-hot-toast';
 import type { ClinicalNote, Template } from '../types';
 
-const MIN_RECORDING_SECONDS = 30;
+const MIN_RECORDING_SECONDS = 20;
 
 export default function CapturePage() {
   const navigate = useNavigate();
@@ -179,7 +179,7 @@ export default function CapturePage() {
     if (!meetsMinDuration) {
       setShakingStop(true);
       setTimeout(() => setShakingStop(false), 600);
-      toast.error(`Please record for at least 30 seconds. ${remainingSeconds}s remaining.`, {
+      toast.error(`Please record for at least ${MIN_RECORDING_SECONDS} seconds. ${remainingSeconds}s remaining.`, {
         icon: '⏱️',
         duration: 3000,
       });
@@ -608,7 +608,7 @@ export default function CapturePage() {
                 <div className="mt-8 p-4 bg-white/5 border border-white/10 rounded-xl">
                   <h4 className="font-medium text-emerald-400 mb-2">💡 Tips for best results</h4>
                   <ul className="text-sm text-slate-400 space-y-1">
-                    <li>• <span className="text-amber-400 font-semibold">Minimum 30 seconds</span> required per recording</li>
+                    <li>• <span className="text-amber-400 font-semibold">Minimum {MIN_RECORDING_SECONDS} seconds</span> required per recording</li>
                     <li>• Speak clearly and at a natural pace</li>
                     <li>• Minimize background noise</li>
                     <li>• State important details explicitly</li>
