@@ -404,19 +404,47 @@ export const useRecordingStore = create<RecordingState>()((set, get) => ({
   audioChunks: [],
   startRecording: async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      // Mono / 16kHz is what Whisper actually transcribes — match it at capture time so
+      // desktop browsers don't over-process the signal and produce a degraded recording.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          sampleRate: 16000,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+
+      // Probe a supported container in priority order. Concatenating raw chunks of an
+      // unspecified WebM produced an invalid file on desktop Chrome, which is why
+      // transcription "worked on mobile but not on laptop".
+      const candidates = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4;codecs=mp4a.40.2',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+      ];
+      const mimeType =
+        candidates.find(t => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t)) || '';
+
+      const mediaRecorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
       const audioChunks: Blob[] = [];
-      
+
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunks.push(event.data);
           set({ audioChunks: [...audioChunks] });
         }
       };
-      
-      mediaRecorder.start(1000);
-      
+
+      // No timeslice — emit one complete chunk on stop. With a timeslice, only the first
+      // chunk carries the container header and concatenation produces a malformed blob.
+      mediaRecorder.start();
+
       set({
         mediaRecorder,
         audioChunks: [],
@@ -434,11 +462,12 @@ export const useRecordingStore = create<RecordingState>()((set, get) => ({
   },
   stopRecording: async () => {
     const { mediaRecorder, audioChunks } = get();
-    
+
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
       return new Promise<Blob | null>((resolve) => {
         mediaRecorder.onstop = () => {
-          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          const blobType = mediaRecorder.mimeType || 'audio/webm';
+          const audioBlob = new Blob(audioChunks, { type: blobType });
           mediaRecorder.stream.getTracks().forEach(track => track.stop());
           
           set({

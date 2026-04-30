@@ -190,9 +190,17 @@ export default function CapturePage() {
       const audioBlob = await stopRecording();
       
       if (audioBlob) {
-        // Step 1: Upload the audio file
+        // Step 1: Upload the audio file. Use the recorder's actual mimeType — on iOS this
+        // can be audio/mp4 instead of audio/webm. Hard-coding the extension produced a
+        // file whose name lied about its container, which caused intermittent failures.
         toast.loading('Uploading audio...', { id: 'processing' });
-        const audioFile = new File([audioBlob], `recording-${Date.now()}.webm`, { type: 'audio/webm' });
+        const blobType = audioBlob.type || 'audio/webm';
+        const ext =
+          blobType.includes('mp4') ? 'mp4'
+          : blobType.includes('ogg') ? 'ogg'
+          : blobType.includes('wav') ? 'wav'
+          : 'webm';
+        const audioFile = new File([audioBlob], `recording-${Date.now()}.${ext}`, { type: blobType });
         const uploadResult = await audioApi.upload(audioFile);
         
         // Step 2: Transcribe with OpenAI Whisper
@@ -218,17 +226,19 @@ export default function CapturePage() {
           });
         }
 
-        // Sanitize GPT content — strip null / non-string values before sending
+        // Sanitize GPT content — coerce null/undefined to empty string so the section
+        // still renders in the editor (otherwise dropping the key makes the body blank).
         const sanitizedContent: Record<string, unknown> = {};
         if (noteResult.content && typeof noteResult.content === 'object') {
           for (const [key, value] of Object.entries(noteResult.content)) {
-            if (value != null && typeof value === 'string') {
+            if (typeof value === 'string') {
               sanitizedContent[key] = value;
             } else if (value != null && typeof value === 'object') {
               // keep objects like customSections as-is
               sanitizedContent[key] = value;
+            } else {
+              sanitizedContent[key] = '';
             }
-            // skip null / undefined / non-string primitives
           }
         }
         

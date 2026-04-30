@@ -97,14 +97,17 @@ export default function DemoSessionPage() {
 
         toast.dismiss('demo');
 
-        // Sanitize GPT content — strip null / non-string values before sending
+        // Sanitize GPT content — coerce null/undefined to empty string so the section
+        // still renders in the editor (otherwise dropping the key makes the body blank).
         const sanitizedContent: Record<string, unknown> = {};
         if (generated.content && typeof generated.content === 'object') {
           for (const [key, value] of Object.entries(generated.content)) {
-            if (value != null && typeof value === 'string') {
+            if (typeof value === 'string') {
               sanitizedContent[key] = value;
             } else if (value != null && typeof value === 'object') {
               sanitizedContent[key] = value;
+            } else {
+              sanitizedContent[key] = '';
             }
           }
         }

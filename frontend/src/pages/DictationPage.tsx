@@ -232,14 +232,17 @@ export default function DictationPage() {
       
       toast.dismiss('dictation-process');
 
-      // Sanitize GPT content — strip null / non-string values before sending
+      // Sanitize GPT content — coerce null/undefined to empty string so the section
+      // still renders in the editor (otherwise dropping the key makes the body blank).
       const sanitizedContent: Record<string, unknown> = {};
       if (noteResult.content && typeof noteResult.content === 'object') {
         for (const [key, value] of Object.entries(noteResult.content)) {
-          if (value != null && typeof value === 'string') {
+          if (typeof value === 'string') {
             sanitizedContent[key] = value;
           } else if (value != null && typeof value === 'object') {
             sanitizedContent[key] = value;
+          } else {
+            sanitizedContent[key] = '';
           }
         }
       }
