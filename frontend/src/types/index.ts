@@ -40,6 +40,9 @@ export interface NoteContent {
   medicalDecisionMaking?: string;
   instructions?: string;
   followUp?: string;
+  // GPT-generated short clinical title (4-8 words). May arrive as a top-level field
+  // straight from the model, or be tucked into customSections.topic by the backend.
+  topic?: string;
   customSections?: Record<string, string>;
 }
 

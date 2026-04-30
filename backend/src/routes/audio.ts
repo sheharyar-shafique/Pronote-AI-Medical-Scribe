@@ -493,8 +493,9 @@ function buildDynamicPrompt(settings: SectionSetting[]): string {
   return `You are an expert medical documentation assistant specializing in thorough clinical documentation.
 Generate a comprehensive clinical note from the given patient-clinician transcription.
 
-Return a JSON object with EXACTLY these fields:
+Return a JSON object with EXACTLY these fields plus a "topic" field:
 {
+  "topic": "...",
 ${jsonKeys}${hasInstructions ? '' : ',\n  "instructions": "..."'}
 }
 
@@ -508,7 +509,11 @@ IMPORTANT RULES:
 - Use proper medical terminology throughout.
 - Every section MUST contain real clinical content derived from the transcription.
 - If the transcription doesn't mention something for a section, write reasonable clinical defaults or note "Not discussed during this encounter."
-- The output MUST respect the formatting preferences specified above (bullet vs paragraph, concise vs detailed).`;
+- The output MUST respect the formatting preferences specified above (bullet vs paragraph, concise vs detailed).
+- "topic" is REQUIRED: a short, specific clinical title summarizing this visit (4-8 words, Title Case).
+  Good examples: "Leg and Headache Symptoms Evaluation", "Acute Upper Respiratory Infection Follow-Up",
+  "Chest Pain Evaluation with Hypertension". Do NOT include the patient name. Do NOT start with "Patient"
+  or "Visit for". Do NOT use generic titles like "Clinical Note".`;
 }
 
 function getSystemPromptForTemplate(template: string): string {
@@ -527,6 +532,14 @@ IMPORTANT RULES FOR ALL SECTIONS:
   5. Follow-up appointment timing
   6. Any referrals given
 - Return ONLY valid JSON. Do NOT wrap in markdown code blocks.
+
+ALWAYS INCLUDE A "topic" FIELD in the JSON output, in addition to all other required fields:
+- "topic": A short, specific clinical title summarizing what THIS visit was about (4-8 words, Title Case).
+  Good examples: "Leg and Headache Symptoms Evaluation", "Acute Upper Respiratory Infection Follow-Up",
+  "Chest Pain Evaluation with Hypertension", "Postoperative Knee Replacement Review",
+  "Type 2 Diabetes Management Visit".
+  Rules: Do NOT include the patient's name. Do NOT start with "Patient" or "Visit for". Do NOT use generic
+  titles like "Clinical Note" or "Medical Visit". Make it specific to the actual chief complaint and findings.
 `;
 
   const prompts: Record<string, string> = {

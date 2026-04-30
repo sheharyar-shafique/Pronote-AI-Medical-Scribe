@@ -22,10 +22,20 @@ import toast from 'react-hot-toast';
 import type { ClinicalNote, NoteContent, Template } from '../types';
 import { getAuthToken } from '../services/api';
 
-// Build a short topic line from the generated note content — picks the first
-// non-empty signal in priority order so it works for any template.
+// Pull a short clinical title from the generated note. Prefers the GPT-emitted "topic"
+// (a 4-8 word title we ask for in the prompt). Falls back to the first non-empty signal
+// from the content fields for older notes that pre-date the topic field.
 function deriveNoteTopic(content: NoteContent | undefined): string {
   if (!content) return '';
+
+  // Direct passthrough from GPT (Zod schema is passthrough — modern notes have this).
+  if (content.topic && content.topic.trim()) return content.topic.trim();
+
+  // Stored under customSections by the backend create-note handler.
+  const fromCustom = content.customSections?.topic;
+  if (typeof fromCustom === 'string' && fromCustom.trim()) return fromCustom.trim();
+
+  // Legacy fallback for notes recorded before the topic field existed.
   const candidates = [
     content.chiefComplaint,
     content.assessment,
@@ -37,7 +47,6 @@ function deriveNoteTopic(content: NoteContent | undefined): string {
     if (typeof raw !== 'string') continue;
     const trimmed = raw.trim();
     if (!trimmed) continue;
-    // Take the first sentence / line and cap the length so it stays one-liner-friendly.
     const firstSentence = trimmed.split(/(?<=[.!?])\s+|\n/)[0].trim();
     return firstSentence.length > 90 ? firstSentence.slice(0, 87) + '…' : firstSentence;
   }
@@ -351,7 +360,9 @@ export default function NoteEditorPage() {
               {(() => {
                 const topic = deriveNoteTopic(content);
                 return topic ? (
-                  <p className="text-sm text-slate-300 mb-1.5 italic">{topic}</p>
+                  <p className="text-xl sm:text-2xl font-semibold text-white mt-1 mb-2 leading-snug">
+                    {topic}
+                  </p>
                 ) : null;
               })()}
               <div className="flex items-center gap-4 text-sm text-slate-400">

@@ -191,6 +191,24 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next) => {
 
     // Create the note content
     if (data.content) {
+      // Merge the GPT-generated "topic" (and any other unknown passthrough keys) into
+      // custom_sections so we don't need a DB migration. The frontend reads it back
+      // out of customSections.topic to render the note's title.
+      const knownKeys = new Set([
+        'subjective', 'objective', 'assessment', 'plan',
+        'chiefComplaint', 'historyOfPresentIllness', 'reviewOfSystems',
+        'physicalExam', 'medicalDecisionMaking', 'instructions', 'followUp',
+        'customSections',
+      ]);
+      const passthroughExtras: Record<string, string> = {};
+      for (const [k, v] of Object.entries(data.content)) {
+        if (!knownKeys.has(k) && typeof v === 'string') passthroughExtras[k] = v;
+      }
+      const mergedCustom = {
+        ...(data.content.customSections || {}),
+        ...passthroughExtras,
+      };
+
       const { error: contentError } = await supabase
         .from('note_contents')
         .insert({
@@ -206,7 +224,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next) => {
           medical_decision_making: data.content.medicalDecisionMaking,
           instructions: data.content.instructions,
           follow_up: data.content.followUp,
-          custom_sections: data.content.customSections || {},
+          custom_sections: mergedCustom,
         });
 
       if (contentError) throw contentError;
