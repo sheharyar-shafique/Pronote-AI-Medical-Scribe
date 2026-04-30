@@ -1,7 +1,9 @@
 import { Router, Response } from 'express';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
-import { toFile } from 'openai';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { supabase } from '../lib/supabase.js';
 import { openai } from '../lib/openai.js';
 import { authenticate, requireActiveSubscription, AuthenticatedRequest } from '../middleware/auth.js';
@@ -122,40 +124,66 @@ router.post('/transcribe', async (req: AuthenticatedRequest, res: Response, next
     let transcription: string;
 
     if (openai) {
+      // Pick a Whisper-supported extension from the stored MIME or filename.
+      const cleanType = (audioFile.file_type || 'audio/webm').split(';')[0].trim();
+      const extFromType: Record<string, string> = {
+        'audio/webm': 'webm',
+        'audio/mp4': 'mp4',
+        'audio/mpeg': 'mp3',
+        'audio/mp3': 'mp3',
+        'audio/wav': 'wav',
+        'audio/x-wav': 'wav',
+        'audio/ogg': 'ogg',
+        'audio/m4a': 'm4a',
+        'audio/x-m4a': 'm4a',
+      };
+      const knownExts = ['mp3', 'mp4', 'm4a', 'wav', 'webm', 'ogg', 'flac', 'mpeg', 'mpga', 'oga'];
+      const lowerName = (audioFile.file_name || '').toLowerCase();
+      const matchedExt = knownExts.find(e => lowerName.endsWith('.' + e));
+      const ext = matchedExt || extFromType[cleanType] || 'webm';
+
+      // Detect the actual container from the file's magic bytes — the recorder's reported
+      // MIME type can lie (Chrome reports webm but writes a different container occasionally).
+      const buffer = Buffer.from(await fileData.arrayBuffer());
+      const head = buffer.slice(0, 16);
+      const sniffedExt =
+        head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3 ? 'webm'
+          : head[0] === 0x4f && head[1] === 0x67 && head[2] === 0x67 && head[3] === 0x53 ? 'ogg'
+          : head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46 ? 'wav'
+          : head[0] === 0x49 && head[1] === 0x44 && head[2] === 0x33 ? 'mp3'
+          : head[4] === 0x66 && head[5] === 0x74 && head[6] === 0x79 && head[7] === 0x70 ? 'mp4'
+          : head[0] === 0xff && (head[1] & 0xf0) === 0xf0 ? 'mp3'
+          : null;
+
+      // Trust the sniffed format over any metadata — that's what Whisper inspects too.
+      const finalExt = sniffedExt || ext;
+      const fileName = `recording.${finalExt}`;
+
+      console.log(
+        `[whisper] uploading: bytes=${buffer.length} reportedType=${audioFile.file_type} reportedName=${audioFile.file_name} ext=${finalExt} sniffed=${sniffedExt} magic=${head.slice(0, 8).toString('hex')}`
+      );
+
+      // Reject obviously-empty / tiny files before we burn an OpenAI request on them.
+      if (buffer.length < 1024) {
+        await supabase
+          .from('audio_files')
+          .update({ transcription_status: 'failed' })
+          .eq('id', audioFileId);
+        throw new AppError(
+          `Audio file is too small (${buffer.length} bytes) — recording likely failed on the device.`,
+          422
+        );
+      }
+
+      // Write to a temp file and stream it. fs.createReadStream is the upload method
+      // OpenAI's docs themselves recommend; it always conveys the filename + extension
+      // correctly to Whisper, which is what the "Invalid file format" error was about.
+      const tempPath = path.join(os.tmpdir(), `whisper-${audioFileId}-${Date.now()}.${finalExt}`);
+      await fs.promises.writeFile(tempPath, buffer);
+
       try {
-        // Strip codec parameters (e.g. "audio/webm;codecs=opus" → "audio/webm").
-        // Whisper sniffs the binary container; the codec hint can confuse multipart parsing.
-        const cleanType = (audioFile.file_type || 'audio/webm').split(';')[0].trim();
-
-        // Whisper rejects requests with "Invalid file format" when the multipart filename
-        // doesn't end in a recognized extension. Force one based on the MIME type.
-        const extFromType: Record<string, string> = {
-          'audio/webm': 'webm',
-          'audio/mp4': 'mp4',
-          'audio/mpeg': 'mp3',
-          'audio/mp3': 'mp3',
-          'audio/wav': 'wav',
-          'audio/x-wav': 'wav',
-          'audio/ogg': 'ogg',
-          'audio/m4a': 'm4a',
-          'audio/x-m4a': 'm4a',
-        };
-        const knownExts = ['mp3', 'mp4', 'm4a', 'wav', 'webm', 'ogg', 'flac', 'mpeg', 'mpga', 'oga'];
-        const lowerName = (audioFile.file_name || '').toLowerCase();
-        const hasGoodExt = knownExts.some(e => lowerName.endsWith('.' + e));
-        const fileName = hasGoodExt
-          ? audioFile.file_name
-          : `recording.${extFromType[cleanType] || 'webm'}`;
-
-        // The OpenAI SDK's `toFile` helper builds a Uploadable that reliably forwards
-        // the filename and content-type into the multipart request. `new File([blob], …)`
-        // didn't always preserve the filename in Node, which is why Whisper kept rejecting
-        // the upload as "Invalid file format" even when the bytes were valid webm.
-        const buffer = Buffer.from(await fileData.arrayBuffer());
-        const uploadable = await toFile(buffer, fileName, { type: cleanType });
-
         const response = await openai.audio.transcriptions.create({
-          file: uploadable,
+          file: fs.createReadStream(tempPath),
           model: 'whisper-1',
           language: 'en',
           response_format: 'text',
@@ -169,13 +197,13 @@ router.post('/transcribe', async (req: AuthenticatedRequest, res: Response, next
           .update({ transcription_status: 'failed' })
           .eq('id', audioFileId);
 
-        // Surface the real Whisper error to the client so failures are diagnosable
-        // instead of always reading "try again with clearer audio."
         const detail =
           whisperError?.error?.message ||
           whisperError?.message ||
           'unknown error';
         throw new AppError(`Transcription failed: ${detail}`, 422);
+      } finally {
+        fs.promises.unlink(tempPath).catch(() => {});
       }
     } else {
       // Mock transcription for development
