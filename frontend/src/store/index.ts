@@ -461,15 +461,20 @@ export const useRecordingStore = create<RecordingState>()((set, get) => ({
     }
   },
   stopRecording: async () => {
-    const { mediaRecorder, audioChunks } = get();
+    const { mediaRecorder } = get();
 
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
       return new Promise<Blob | null>((resolve) => {
         mediaRecorder.onstop = () => {
+          // Read the chunks fresh from the store. Since this fires AFTER dataavailable,
+          // the ondataavailable handler in startRecording has already pushed the final
+          // chunk into the store. With no timeslice, that's the only chunk that ever
+          // exists — destructuring audioChunks before stop() always saw an empty array.
+          const finalChunks = get().audioChunks;
           const blobType = mediaRecorder.mimeType || 'audio/webm';
-          const audioBlob = new Blob(audioChunks, { type: blobType });
+          const audioBlob = new Blob(finalChunks, { type: blobType });
           mediaRecorder.stream.getTracks().forEach(track => track.stop());
-          
+
           set({
             session: {
               ...get().session,
@@ -478,10 +483,10 @@ export const useRecordingStore = create<RecordingState>()((set, get) => ({
             },
             mediaRecorder: null,
           });
-          
+
           resolve(audioBlob);
         };
-        
+
         mediaRecorder.stop();
       });
     }
