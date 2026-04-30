@@ -113,6 +113,7 @@ export default function DemoSessionPage() {
           template: DEMO_TEMPLATE,
           content: sanitizedContent as any,
           transcription: transcribed.transcription,
+          processingTime: session.duration,
         });
 
         const newNote: ClinicalNote = {

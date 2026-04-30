@@ -667,6 +667,9 @@ export interface CreateNoteData {
   content?: NoteContent;
   status?: 'draft' | 'completed' | 'signed';
   transcription?: string;
+  // Recording length in seconds; backend persists this in processing_time_seconds
+  // and echoes it back as ClinicalNote.durationSeconds.
+  processingTime?: number;
 }
 
 export interface Template {

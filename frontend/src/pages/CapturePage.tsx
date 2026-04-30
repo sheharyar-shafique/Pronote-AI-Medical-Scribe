@@ -237,15 +237,19 @@ export default function CapturePage() {
           }
         }
         
-        // Step 4: Create the note in the database
+        // Step 4: Create the note in the database. Send the recording duration as
+        // processingTime so it lands in clinical_notes.processing_time_seconds — the
+        // patient notes table reads it back as durationSeconds.
+        const recordingDuration = session.duration;
         const createdNote = await notesApi.create({
           patientName: patientName || 'Unknown Patient',
           dateOfService: new Date().toISOString().split('T')[0],
           template: selectedTemplate,
           content: sanitizedContent as any,
           transcription: transcriptionResult.transcription,
+          processingTime: recordingDuration,
         });
-        
+
         // Also add to local store for immediate UI update
         const newNote: ClinicalNote = {
           id: createdNote.id,
@@ -257,6 +261,7 @@ export default function CapturePage() {
           status: createdNote.status,
           transcription: createdNote.transcription,
           audioUrl: createdNote.audioUrl,
+          durationSeconds: createdNote.durationSeconds ?? recordingDuration,
           createdAt: new Date(createdNote.createdAt),
           updatedAt: new Date(createdNote.updatedAt),
         };

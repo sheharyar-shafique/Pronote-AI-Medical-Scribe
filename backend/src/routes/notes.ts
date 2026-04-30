@@ -53,6 +53,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response, next) => {
       status: note.status,
       audioUrl: note.audio_url,
       transcription: note.transcription,
+      durationSeconds: note.processing_time_seconds,
       content: note.note_contents ? {
         subjective: note.note_contents.subjective,
         objective: note.note_contents.objective,
@@ -138,6 +139,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response, next) => {
       status: note.status,
       audioUrl: note.audio_url,
       transcription: note.transcription,
+      durationSeconds: note.processing_time_seconds,
       content: note.note_contents ? {
         subjective: note.note_contents.subjective,
         objective: note.note_contents.objective,
@@ -246,6 +248,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next) => {
       dateOfService: note.date_of_service,
       template: note.template,
       status: note.status,
+      durationSeconds: note.processing_time_seconds,
       content: data.content || {},
       createdAt: note.created_at,
       updatedAt: note.updated_at,
@@ -332,6 +335,7 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response, next) => {
       status: updatedNote.status,
       audioUrl: updatedNote.audio_url,
       transcription: updatedNote.transcription,
+      durationSeconds: updatedNote.processing_time_seconds,
       content: updatedNote.note_contents ? {
         subjective: updatedNote.note_contents.subjective,
         objective: updatedNote.note_contents.objective,

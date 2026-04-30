@@ -24,6 +24,9 @@ export interface ClinicalNote {
   status: 'draft' | 'completed' | 'signed';
   audioUrl?: string;
   transcription?: string;
+  // Length of the source recording (seconds). Stored in processing_time_seconds on the
+  // backend; surfaces as "Duration" in the patient notes table.
+  durationSeconds?: number;
   createdAt: Date;
   updatedAt: Date;
 }

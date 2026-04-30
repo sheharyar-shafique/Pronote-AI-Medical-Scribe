@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -14,6 +14,8 @@ import {
   BarChart2,
   Stethoscope,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ThumbsUp,
   ThumbsDown,
   Save,
@@ -23,7 +25,33 @@ import { Sidebar } from '../components/layout';
 import { useNotesStore } from '../store';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import type { ClinicalNote } from '../types';
+import type { ClinicalNote, NoteContent } from '../types';
+
+// Build a short clinical title for the notes table — same priority as the editor:
+// GPT-emitted topic → customSections.topic → first sentence fallback.
+function deriveTitle(note: ClinicalNote): string {
+  const c = note.content as NoteContent | undefined;
+  if (c?.topic && c.topic.trim()) return c.topic.trim();
+  const fromCustom = c?.customSections?.topic;
+  if (typeof fromCustom === 'string' && fromCustom.trim()) return fromCustom.trim();
+  const candidates = [c?.chiefComplaint, c?.assessment, c?.subjective];
+  for (const raw of candidates) {
+    if (typeof raw !== 'string') continue;
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    const firstSentence = trimmed.split(/(?<=[.!?])\s+|\n/)[0].trim();
+    return firstSentence.length > 70 ? firstSentence.slice(0, 67) + '…' : firstSentence;
+  }
+  return 'Untitled note';
+}
+
+function formatDuration(seconds: number | undefined): string {
+  if (!seconds || seconds <= 0) return '—';
+  if (seconds < 60) return `${seconds} second${seconds === 1 ? '' : 's'}`;
+  const mins = Math.floor(seconds / 60);
+  const rem = seconds % 60;
+  return rem === 0 ? `${mins} min` : `${mins} min ${rem} sec`;
+}
 
 // ── Patient profile stored in localStorage per patient name ──────────────────
 interface PatientProfile {
@@ -416,35 +444,10 @@ export default function PatientPage() {
             )}
 
             {activeTab === 'notes' && (
-              <div className="space-y-4">
-                {patientNotes.length === 0 ? (
-                  <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-10 text-center">
-                    <FileText size={36} className="mx-auto mb-4 text-slate-500" />
-                    <p className="text-slate-400">No notes yet for this patient.</p>
-                  </div>
-                ) : patientNotes.map(note => (
-                  <motion.div
-                    key={note.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5 hover:bg-white/[0.06] transition-colors cursor-pointer"
-                    onClick={() => navigate(`/notes/${note.id}`)}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-semibold text-white capitalize">{note.template} Note</span>
-                      <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                        note.status === 'signed' ? 'bg-emerald-500/15 text-emerald-400' :
-                        note.status === 'completed' ? 'bg-blue-500/15 text-blue-400' :
-                        'bg-amber-500/15 text-amber-400'
-                      }`}>{note.status}</span>
-                    </div>
-                    <p className="text-xs text-slate-400">{format(new Date(note.dateOfService), 'MMMM d, yyyy')}</p>
-                    {note.content.subjective && (
-                      <p className="mt-2 text-sm text-slate-400 line-clamp-2">{note.content.subjective}</p>
-                    )}
-                  </motion.div>
-                ))}
-              </div>
+              <PatientNotesTable
+                notes={patientNotes}
+                onOpen={id => navigate(`/notes/${id}`)}
+              />
             )}
 
             {(activeTab === 'context' || activeTab === 'treatment' || activeTab === 'reports') && (
@@ -460,5 +463,139 @@ export default function PatientPage() {
         </AnimatePresence>
       </div>
     </Sidebar>
+  );
+}
+
+// ── Patient Notes Table ──────────────────────────────────────────────────────
+const PAGE_SIZE = 10;
+
+interface PatientNotesTableProps {
+  notes: ClinicalNote[];
+  onOpen: (id: string) => void;
+}
+
+function PatientNotesTable({ notes, onOpen }: PatientNotesTableProps) {
+  const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const totalPages = Math.max(1, Math.ceil(notes.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paged = useMemo(
+    () => notes.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [notes, safePage]
+  );
+
+  const allOnPageSelected = paged.length > 0 && paged.every(n => selectedIds.has(n.id));
+  const someOnPageSelected = paged.some(n => selectedIds.has(n.id));
+
+  const togglePage = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allOnPageSelected) paged.forEach(n => next.delete(n.id));
+      else paged.forEach(n => next.add(n.id));
+      return next;
+    });
+  };
+
+  const toggleRow = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  if (notes.length === 0) {
+    return (
+      <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-10 text-center">
+        <FileText size={36} className="mx-auto mb-4 text-slate-500" />
+        <p className="text-slate-400">No notes yet for this patient.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl overflow-hidden">
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left border-b border-white/[0.08] bg-white/[0.02]">
+              <th className="w-10 px-4 py-3.5">
+                <input
+                  type="checkbox"
+                  checked={allOnPageSelected}
+                  ref={el => {
+                    if (el) el.indeterminate = !allOnPageSelected && someOnPageSelected;
+                  }}
+                  onChange={togglePage}
+                  className="w-4 h-4 rounded border-white/20 bg-white/[0.04] accent-emerald-500 cursor-pointer"
+                />
+              </th>
+              <th className="px-4 py-3.5 font-semibold text-slate-300">Title</th>
+              <th className="px-4 py-3.5 font-semibold text-slate-300 w-40">Duration</th>
+              <th className="px-4 py-3.5 font-semibold text-slate-300 w-56">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paged.map((note, i) => {
+              const checked = selectedIds.has(note.id);
+              return (
+                <tr
+                  key={note.id}
+                  onClick={() => onOpen(note.id)}
+                  className={`border-b border-white/[0.05] cursor-pointer transition-colors ${
+                    checked ? 'bg-emerald-500/[0.06]' : 'hover:bg-white/[0.04]'
+                  } ${i === paged.length - 1 ? 'border-b-0' : ''}`}
+                >
+                  <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleRow(note.id)}
+                      className="w-4 h-4 rounded border-white/20 bg-white/[0.04] accent-emerald-500 cursor-pointer"
+                    />
+                  </td>
+                  <td className="px-4 py-3.5 text-white font-medium">{deriveTitle(note)}</td>
+                  <td className="px-4 py-3.5 text-slate-400">{formatDuration(note.durationSeconds)}</td>
+                  <td className="px-4 py-3.5 text-slate-400 whitespace-nowrap">
+                    {format(new Date(note.createdAt), "MMM d, yyyy, h:mm a")}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Footer: selection count + pagination */}
+      <div className="flex items-center justify-between px-4 py-3 border-t border-white/[0.08] bg-white/[0.02]">
+        <span className="text-xs text-slate-400">
+          {selectedIds.size} of {notes.length} row{notes.length === 1 ? '' : 's'} selected.
+        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-slate-400">
+            Page {safePage} of {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={safePage === 1}
+            className="p-1.5 rounded-md border border-white/[0.1] text-slate-300 hover:text-white hover:bg-white/[0.06] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            aria-label="Previous page"
+          >
+            <ChevronLeft size={15} />
+          </button>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={safePage === totalPages}
+            className="p-1.5 rounded-md border border-white/[0.1] text-slate-300 hover:text-white hover:bg-white/[0.06] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            aria-label="Next page"
+          >
+            <ChevronRight size={15} />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
