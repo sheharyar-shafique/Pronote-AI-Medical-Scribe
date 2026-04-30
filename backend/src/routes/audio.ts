@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
+import { toFile } from 'openai';
 import { supabase } from '../lib/supabase.js';
 import { openai } from '../lib/openai.js';
 import { authenticate, requireActiveSubscription, AuthenticatedRequest } from '../middleware/auth.js';
@@ -126,8 +127,8 @@ router.post('/transcribe', async (req: AuthenticatedRequest, res: Response, next
         // Whisper sniffs the binary container; the codec hint can confuse multipart parsing.
         const cleanType = (audioFile.file_type || 'audio/webm').split(';')[0].trim();
 
-        // Make sure the filename has an extension Whisper recognizes — it's stricter about
-        // the filename than the MIME type. Map MIME → ext when the upload was missing one.
+        // Whisper rejects requests with "Invalid file format" when the multipart filename
+        // doesn't end in a recognized extension. Force one based on the MIME type.
         const extFromType: Record<string, string> = {
           'audio/webm': 'webm',
           'audio/mp4': 'mp4',
@@ -146,10 +147,15 @@ router.post('/transcribe', async (req: AuthenticatedRequest, res: Response, next
           ? audioFile.file_name
           : `recording.${extFromType[cleanType] || 'webm'}`;
 
-        const file = new File([fileData], fileName, { type: cleanType });
+        // The OpenAI SDK's `toFile` helper builds a Uploadable that reliably forwards
+        // the filename and content-type into the multipart request. `new File([blob], …)`
+        // didn't always preserve the filename in Node, which is why Whisper kept rejecting
+        // the upload as "Invalid file format" even when the bytes were valid webm.
+        const buffer = Buffer.from(await fileData.arrayBuffer());
+        const uploadable = await toFile(buffer, fileName, { type: cleanType });
 
         const response = await openai.audio.transcriptions.create({
-          file,
+          file: uploadable,
           model: 'whisper-1',
           language: 'en',
           response_format: 'text',
