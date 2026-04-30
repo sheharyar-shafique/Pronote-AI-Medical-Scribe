@@ -404,12 +404,12 @@ export const useRecordingStore = create<RecordingState>()((set, get) => ({
   audioChunks: [],
   startRecording: async () => {
     try {
-      // Mono / 16kHz is what Whisper actually transcribes — match it at capture time so
-      // desktop browsers don't over-process the signal and produce a degraded recording.
+      // Mono channel + browser-default sample rate. Whisper resamples to 16kHz internally,
+      // and forcing sampleRate: 16000 in getUserMedia caused intermittent failures on desktop
+      // where the audio device couldn't honor the constraint.
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
-          sampleRate: 16000,
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,

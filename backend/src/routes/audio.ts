@@ -122,9 +122,32 @@ router.post('/transcribe', async (req: AuthenticatedRequest, res: Response, next
 
     if (openai) {
       try {
-        // Use OpenAI Whisper for transcription
-        const file = new File([fileData], audioFile.file_name, { type: audioFile.file_type });
-        
+        // Strip codec parameters (e.g. "audio/webm;codecs=opus" → "audio/webm").
+        // Whisper sniffs the binary container; the codec hint can confuse multipart parsing.
+        const cleanType = (audioFile.file_type || 'audio/webm').split(';')[0].trim();
+
+        // Make sure the filename has an extension Whisper recognizes — it's stricter about
+        // the filename than the MIME type. Map MIME → ext when the upload was missing one.
+        const extFromType: Record<string, string> = {
+          'audio/webm': 'webm',
+          'audio/mp4': 'mp4',
+          'audio/mpeg': 'mp3',
+          'audio/mp3': 'mp3',
+          'audio/wav': 'wav',
+          'audio/x-wav': 'wav',
+          'audio/ogg': 'ogg',
+          'audio/m4a': 'm4a',
+          'audio/x-m4a': 'm4a',
+        };
+        const knownExts = ['mp3', 'mp4', 'm4a', 'wav', 'webm', 'ogg', 'flac', 'mpeg', 'mpga', 'oga'];
+        const lowerName = (audioFile.file_name || '').toLowerCase();
+        const hasGoodExt = knownExts.some(e => lowerName.endsWith('.' + e));
+        const fileName = hasGoodExt
+          ? audioFile.file_name
+          : `recording.${extFromType[cleanType] || 'webm'}`;
+
+        const file = new File([fileData], fileName, { type: cleanType });
+
         const response = await openai.audio.transcriptions.create({
           file,
           model: 'whisper-1',
@@ -134,13 +157,19 @@ router.post('/transcribe', async (req: AuthenticatedRequest, res: Response, next
 
         transcription = response;
       } catch (whisperError: any) {
-        console.error('Whisper transcription error:', whisperError.message);
-        // Mark as failed so we don't generate a note from silence
+        console.error('Whisper transcription error:', whisperError?.message, whisperError?.status, whisperError?.error);
         await supabase
           .from('audio_files')
           .update({ transcription_status: 'failed' })
           .eq('id', audioFileId);
-        throw new AppError('Transcription failed. Please try recording again with clearer audio.', 422);
+
+        // Surface the real Whisper error to the client so failures are diagnosable
+        // instead of always reading "try again with clearer audio."
+        const detail =
+          whisperError?.error?.message ||
+          whisperError?.message ||
+          'unknown error';
+        throw new AppError(`Transcription failed: ${detail}`, 422);
       }
     } else {
       // Mock transcription for development
