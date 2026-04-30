@@ -24,6 +24,8 @@ import {
   PencilLine,
   Trash2,
   RefreshCw,
+  Plus,
+  X,
 } from 'lucide-react';
 import { Sidebar } from '../components/layout';
 import { useNotesStore } from '../store';
@@ -136,6 +138,37 @@ function saveTreatmentPlanToStorage(name: string, plan: string) {
     } else {
       localStorage.removeItem(treatmentPlanStorageKey(name));
     }
+  } catch {}
+}
+
+// ── Reports storage ─────────────────────────────────────────────────────────
+interface PatientReport {
+  id: string;
+  diagnosis: string;
+  startDate: string; // ISO YYYY-MM-DD
+  endDate: string;
+  createdAt: string; // ISO timestamp
+  content: string;   // GPT-generated narrative
+}
+
+function reportsStorageKey(name: string) {
+  return `pronote_patient_reports_${name.toLowerCase().replace(/\s+/g, '_')}`;
+}
+
+function loadReports(name: string): PatientReport[] {
+  try {
+    const raw = localStorage.getItem(reportsStorageKey(name));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveReportsToStorage(name: string, reports: PatientReport[]) {
+  try {
+    localStorage.setItem(reportsStorageKey(name), JSON.stringify(reports));
   } catch {}
 }
 
@@ -565,11 +598,7 @@ export default function PatientPage() {
             )}
 
             {activeTab === 'reports' && (
-              <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-10 text-center">
-                <ClipboardList size={36} className="mx-auto mb-4 text-slate-500" />
-                <p className="text-white font-medium mb-2">Reports coming soon</p>
-                <p className="text-slate-400 text-sm">This section will be available in an upcoming update.</p>
-              </div>
+              <ReportsPanel patientName={patientName} notes={patientNotes} />
             )}
           </motion.div>
         </AnimatePresence>
@@ -1013,6 +1042,287 @@ function TreatmentPlanPanel({ patientName, notes }: TreatmentPlanPanelProps) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Reports Panel ───────────────────────────────────────────────────────────
+interface ReportsPanelProps {
+  patientName: string;
+  notes: ClinicalNote[];
+}
+
+function ReportsPanel({ patientName, notes }: ReportsPanelProps) {
+  const [reports, setReports] = useState<PatientReport[]>(() => loadReports(patientName));
+  const [showForm, setShowForm] = useState(false);
+  const [diagnosis, setDiagnosis] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [viewing, setViewing] = useState<PatientReport | null>(null);
+
+  const persist = (next: PatientReport[]) => {
+    setReports(next);
+    saveReportsToStorage(patientName, next);
+  };
+
+  const openForm = () => {
+    setDiagnosis('');
+    // Default to last 30 days
+    const today = new Date();
+    const thirtyAgo = new Date(today);
+    thirtyAgo.setDate(today.getDate() - 30);
+    setStartDate(thirtyAgo.toISOString().split('T')[0]);
+    setEndDate(today.toISOString().split('T')[0]);
+    setShowForm(true);
+  };
+
+  const handleGenerate = async () => {
+    if (!diagnosis.trim()) {
+      toast.error('Diagnosis is required.');
+      return;
+    }
+    if (!startDate || !endDate) {
+      toast.error('Pick a report period.');
+      return;
+    }
+    if (new Date(startDate) > new Date(endDate)) {
+      toast.error('Start date must be before end date.');
+      return;
+    }
+
+    // Filter the patient's notes to the selected period.
+    const inRange = notes.filter(n => {
+      const d = new Date(n.dateOfService).toISOString().split('T')[0];
+      return d >= startDate && d <= endDate;
+    });
+
+    if (inRange.length === 0) {
+      toast.error('No notes for this patient in the selected period.');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const { content } = await audioApi.generateReport(
+        inRange.map(n => n.id),
+        diagnosis.trim(),
+        patientName,
+        startDate,
+        endDate
+      );
+      const newReport: PatientReport = {
+        id: `report-${Date.now()}`,
+        diagnosis: diagnosis.trim(),
+        startDate,
+        endDate,
+        createdAt: new Date().toISOString(),
+        content,
+      };
+      persist([newReport, ...reports]);
+      setShowForm(false);
+      setViewing(newReport);
+      toast.success('Report generated');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to generate report');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    if (!confirm('Delete this report?')) return;
+    persist(reports.filter(r => r.id !== id));
+    if (viewing?.id === id) setViewing(null);
+    toast.success('Report deleted');
+  };
+
+  const formatPeriod = (s: string, e: string) =>
+    `${format(new Date(s), 'MMM d, yyyy')} – ${format(new Date(e), 'MMM d, yyyy')}`;
+
+  // Viewing a single report ────────────────────────────────────────────────
+  if (viewing) {
+    return (
+      <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6 sm:p-8">
+        <button
+          onClick={() => setViewing(null)}
+          className="flex items-center gap-2 text-slate-400 hover:text-white text-sm mb-5 transition-colors"
+        >
+          <ArrowLeft size={15} />
+          Back to Reports
+        </button>
+        <h2 className="text-2xl font-bold text-white mb-1.5 tracking-tight">{viewing.diagnosis}</h2>
+        <p className="text-sm text-slate-400 mb-5">
+          {formatPeriod(viewing.startDate, viewing.endDate)} · created{' '}
+          {format(new Date(viewing.createdAt), 'MMM d, yyyy, h:mm a')}
+        </p>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5 mb-5 max-h-[480px] overflow-y-auto">
+          <pre className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap font-sans">
+            {viewing.content}
+          </pre>
+        </div>
+        <div className="flex justify-end">
+          <button
+            onClick={() => handleDelete(viewing.id)}
+            className="flex items-center gap-2 px-4 py-2.5 border border-red-500/40 text-red-400 rounded-xl hover:bg-red-500/10 font-semibold text-sm transition-all"
+          >
+            <Trash2 size={15} />
+            Delete Report
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // List view ───────────────────────────────────────────────────────────────
+  return (
+    <div>
+      {/* Heading row */}
+      <div className="flex items-start justify-between mb-5">
+        <h2 className="text-2xl font-bold text-white tracking-tight">Reports</h2>
+        <button
+          onClick={openForm}
+          className="flex items-center gap-2 px-4 py-2 bg-white/[0.06] border border-white/[0.12] text-white rounded-xl text-sm font-semibold hover:bg-white/[0.1] hover:border-white/[0.2] transition-all"
+        >
+          <Plus size={15} />
+          New Report
+        </button>
+      </div>
+
+      {/* New Report form */}
+      {showForm && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6 mb-5 overflow-hidden"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-bold text-white">New Report</h3>
+            <button
+              onClick={() => setShowForm(false)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">
+                Diagnosis
+              </label>
+              <input
+                type="text"
+                value={diagnosis}
+                onChange={e => setDiagnosis(e.target.value)}
+                placeholder="e.g., Hypertension, Type 2 Diabetes, Recurrent Migraine"
+                className="w-full px-4 py-2.5 bg-white/[0.05] border border-white/[0.12] rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/40 transition-all text-sm"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">
+                  Period start
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-white/[0.05] border border-white/[0.12] rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/40 transition-all text-sm [color-scheme:dark]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">
+                  Period end
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-white/[0.05] border border-white/[0.12] rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/40 transition-all text-sm [color-scheme:dark]"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 mt-5">
+            <button
+              onClick={() => setShowForm(false)}
+              className="px-4 py-2.5 border border-white/20 text-slate-300 rounded-xl hover:bg-white/10 font-semibold text-sm transition-all"
+            >
+              Cancel
+            </button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/25 hover:opacity-90 disabled:opacity-60 transition-all"
+            >
+              {isGenerating ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <Sparkles size={15} />
+                  Generate Report
+                </>
+              )}
+            </motion.button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Reports table */}
+      <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left border-b border-white/[0.08] bg-white/[0.02]">
+              <th className="px-6 py-3.5 font-semibold text-slate-300">Diagnosis</th>
+              <th className="px-6 py-3.5 font-semibold text-slate-300 w-56">Created At</th>
+              <th className="px-6 py-3.5 font-semibold text-slate-300 w-72">Report Period</th>
+              <th className="px-6 py-3.5 w-12" />
+            </tr>
+          </thead>
+          <tbody>
+            {reports.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="px-6 py-12 text-center text-slate-500 text-sm">
+                  No results.
+                </td>
+              </tr>
+            ) : (
+              reports.map((report, i) => (
+                <tr
+                  key={report.id}
+                  onClick={() => setViewing(report)}
+                  className={`border-b border-white/[0.05] cursor-pointer hover:bg-white/[0.04] transition-colors ${
+                    i === reports.length - 1 ? 'border-b-0' : ''
+                  }`}
+                >
+                  <td className="px-6 py-4 text-white font-medium">{report.diagnosis}</td>
+                  <td className="px-6 py-4 text-slate-400 whitespace-nowrap">
+                    {format(new Date(report.createdAt), 'MMM d, yyyy, h:mm a')}
+                  </td>
+                  <td className="px-6 py-4 text-slate-400 whitespace-nowrap">
+                    {formatPeriod(report.startDate, report.endDate)}
+                  </td>
+                  <td className="px-6 py-4 text-right" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => handleDelete(report.id)}
+                      className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                      title="Delete report"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

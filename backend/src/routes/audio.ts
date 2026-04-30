@@ -492,6 +492,134 @@ Use only information that is supported by the provided notes — do not invent d
   }
 });
 
+// POST /api/audio/generate-report — Diagnosis-focused report from notes in a date range
+router.post('/generate-report', async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const { noteIds, diagnosis, patientName, startDate, endDate } = req.body as {
+      noteIds?: string[];
+      diagnosis?: string;
+      patientName?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+
+    if (!Array.isArray(noteIds) || noteIds.length === 0) {
+      throw new AppError('At least one note ID is required.', 400);
+    }
+    if (!diagnosis || !diagnosis.trim()) {
+      throw new AppError('Diagnosis is required.', 400);
+    }
+    if (!startDate || !endDate) {
+      throw new AppError('Report period (startDate and endDate) is required.', 400);
+    }
+
+    const { data: notes, error: fetchError } = await supabase
+      .from('clinical_notes')
+      .select('id, patient_name, date_of_service, template, note_contents(*)')
+      .in('id', noteIds)
+      .eq('user_id', req.user!.id);
+
+    if (fetchError) throw fetchError;
+    if (!notes || notes.length === 0) {
+      throw new AppError('Notes not found for the selected period.', 404);
+    }
+
+    const corpus = notes
+      .sort((a: any, b: any) =>
+        new Date(a.date_of_service || 0).getTime() - new Date(b.date_of_service || 0).getTime()
+      )
+      .map((n: any, i: number) => {
+        const c = n.note_contents || {};
+        const fields = [
+          ['Subjective', c.subjective],
+          ['Objective', c.objective],
+          ['Chief Complaint', c.chief_complaint],
+          ['HPI', c.history_of_present_illness],
+          ['Physical Exam', c.physical_exam],
+          ['Assessment', c.assessment],
+          ['Plan', c.plan],
+          ['Patient Instructions', c.instructions],
+        ]
+          .filter(([, v]) => typeof v === 'string' && (v as string).trim())
+          .map(([label, v]) => `${label}: ${v}`)
+          .join('\n');
+        return `### Note ${i + 1} — ${n.template} (${n.date_of_service ?? 'undated'})\n${fields || '(empty)'}`;
+      })
+      .join('\n\n');
+
+    let content: string;
+    let source: 'ai' | 'mock' = 'ai';
+
+    if (openai) {
+      const systemPrompt = `You are a clinician composing a focused longitudinal report on a single diagnosis for a single patient.
+
+Output a clear, well-structured report as plain text (no markdown headers like ##; use simple section labels followed by a colon). Base it strictly on the provided notes.
+
+Cover, where the notes support it:
+
+1. Summary — one short paragraph stating diagnosis, date range, and overall trajectory.
+2. Timeline of relevant findings — chronological bullets of symptom changes, exam findings, lab/imaging values, and interventions specifically related to the diagnosis.
+3. Treatment summary — medications tried (with response), procedures, lifestyle interventions.
+4. Outcome and current status — symptom severity now vs. start of period, functional status, controlled vs. uncontrolled.
+5. Open issues / next steps — what still needs follow-up, planned tests, referrals.
+
+Constraints:
+- Stay focused on the named diagnosis; do not pad with unrelated visits.
+- Use only information present in the notes; do not invent results, doses, or comorbidities.
+- If a section has no supporting evidence, omit it rather than padding.
+- Keep it factual and concise. No greeting, signature, or boilerplate disclaimer.`;
+
+      const userMessage = `Patient: ${patientName || '(unnamed)'}
+Diagnosis to report on: ${diagnosis}
+Report period: ${startDate} to ${endDate}
+
+Source notes (in chronological order):
+
+${corpus}
+
+Write the report now.`;
+
+      try {
+        const response = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage },
+          ],
+          temperature: 0.3,
+        });
+        content = (response.choices[0].message.content || '').trim();
+        if (!content) throw new Error('Empty response');
+      } catch (err: any) {
+        try {
+          const response = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userMessage },
+            ],
+            temperature: 0.3,
+          });
+          content = (response.choices[0].message.content || '').trim();
+          if (!content) throw new Error('Empty response');
+        } catch (innerErr: any) {
+          throw new AppError(
+            innerErr?.error?.message || innerErr?.message || 'Failed to generate report',
+            502
+          );
+        }
+      }
+    } else {
+      source = 'mock';
+      content = `Summary:\n${diagnosis} during ${startDate} – ${endDate} based on ${notes.length} note${notes.length === 1 ? '' : 's'} in the chart. AI key not configured on the server, so this is a placeholder.\n\nTimeline:\n- ${notes.length} encounter${notes.length === 1 ? '' : 's'} reviewed.\n\nNext steps:\n- Configure OPENAI_API_KEY on the server to generate real AI reports.`;
+    }
+
+    res.json({ content, source });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // GET /api/audio/files - List user's audio files
 router.get('/files', async (req: AuthenticatedRequest, res: Response, next) => {
   try {

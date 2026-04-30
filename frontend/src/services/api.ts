@@ -393,6 +393,19 @@ export const audioApi = {
     });
   },
 
+  generateReport: async (
+    noteIds: string[],
+    diagnosis: string,
+    patientName: string,
+    startDate: string,
+    endDate: string
+  ) => {
+    return apiFetch<{ content: string; source: 'ai' | 'mock' }>('/audio/generate-report', {
+      method: 'POST',
+      body: JSON.stringify({ noteIds, diagnosis, patientName, startDate, endDate }),
+    });
+  },
+
   getFiles: async () => {
     return apiFetch<AudioFile[]>('/audio/files');
   },
