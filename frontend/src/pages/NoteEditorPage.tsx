@@ -185,8 +185,23 @@ export default function NoteEditorPage() {
   };
 
   const getSections = () => {
-    const template = templates.find(t => t.id === note?.template);
-    return template?.sections || ['Subjective', 'Objective', 'Assessment', 'Plan'];
+    // Built-in templates first.
+    const builtIn = templates.find(t => t.id === note?.template);
+    if (builtIn?.sections?.length) return builtIn.sections;
+
+    // Fall back to the user's custom templates from localStorage. NoteEditorPage previously
+    // ignored custom templates, which meant any note recorded with a user-edited template
+    // (e.g. SOAP-with-Patient-Instructions saved as custom-XXX) silently lost extra sections
+    // because the renderer fell back to the default 4-section SOAP layout.
+    try {
+      const customs: Template[] = JSON.parse(
+        localStorage.getItem('pronote_custom_templates') ?? '[]'
+      );
+      const match = customs.find(t => t.id === note?.template);
+      if (match?.sections?.length) return match.sections;
+    } catch {}
+
+    return ['Subjective', 'Objective', 'Assessment', 'Plan', 'Patient Instructions'];
   };
 
   const sectionKeyMap: Record<string, keyof NoteContent> = {
