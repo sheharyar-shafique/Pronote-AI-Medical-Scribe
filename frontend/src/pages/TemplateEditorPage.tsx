@@ -79,17 +79,21 @@ export default function TemplateEditorPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
+  // No :id in the route → create mode. /templates/:id/edit → edit mode.
+  const isCreate = !id;
   const template = defaultTemplates.find(t => t.id === id);
 
   const [templateName, setTemplateName] = useState(
-    template ? `${template.name} - Copy` : 'New Template'
+    isCreate ? '' : (template ? `${template.name} - Copy` : 'New Template')
   );
 
   const [sections, setSections] = useState<EditorSection[]>(
-    (template?.sections?.length
-      ? template.sections
-      : ['Subjective', 'Objective', 'Assessment', 'Plan']
-    ).map((s, i) => makeSection(s, i))
+    isCreate
+      ? []
+      : (template?.sections?.length
+          ? template.sections
+          : ['Subjective', 'Objective', 'Assessment', 'Plan']
+        ).map((s, i) => makeSection(s, i))
   );
 
   const [isSaving, setIsSaving] = useState(false);
@@ -142,7 +146,9 @@ export default function TemplateEditorPage() {
     const saved: Template = {
       id: `custom-${Date.now()}` as NoteTemplate,
       name: templateName.trim(),
-      description: `Custom version based on ${template?.name ?? 'a template'}`,
+      description: isCreate
+        ? 'Custom template'
+        : `Custom version based on ${template?.name ?? 'a template'}`,
       sections: sections.map(s => s.title),
       sectionSettings: sections.map(s => ({
         title: s.title,
@@ -220,15 +226,21 @@ export default function TemplateEditorPage() {
                 className="mb-8"
               >
                 <h1 className="text-2xl font-black text-white mb-1.5 tracking-tight">
-                  Edit Template
+                  {isCreate ? 'Create Template' : 'Edit Template'}
                 </h1>
                 <p className="text-slate-400 text-sm leading-relaxed">
-                  This will create a new version of the template following your edits.
-                  The original{' '}
-                  <span className="text-white font-semibold">
-                    "{template?.name ?? 'template'}"
-                  </span>{' '}
-                  template will remain available.
+                  {isCreate ? (
+                    'Create your own template by adding and customizing sections.'
+                  ) : (
+                    <>
+                      This will create a new version of the template following your edits.
+                      The original{' '}
+                      <span className="text-white font-semibold">
+                        "{template?.name ?? 'template'}"
+                      </span>{' '}
+                      template will remain available.
+                    </>
+                  )}
                 </p>
               </motion.div>
 
@@ -247,7 +259,7 @@ export default function TemplateEditorPage() {
                   value={templateName}
                   onChange={e => setTemplateName(e.target.value)}
                   className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.12] rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all text-sm"
-                  placeholder="e.g., SOAP - Copy"
+                  placeholder={isCreate ? 'Example: SOAP' : 'e.g., SOAP - Copy'}
                 />
               </motion.div>
 

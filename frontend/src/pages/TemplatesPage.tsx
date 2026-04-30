@@ -6,11 +6,10 @@ import {
 } from 'lucide-react';
 import { templatesApi } from '../services/api';
 import { Sidebar } from '../components/layout';
-import { Modal, Input } from '../components/ui';
 import { useSettingsStore } from '../store';
 import { templates as defaultTemplates } from '../data';
 import toast from 'react-hot-toast';
-import type { Template, NoteTemplate } from '../types';
+import type { Template } from '../types';
 
 // ── Derive unique specialty list from default templates ──────────────────────
 const ALL_SPECIALTIES = 'All';
@@ -122,31 +121,6 @@ export default function TemplatesPage() {
       )
     );
 
-  // ── Create modal ─────────────────────────────────────────────────────────────
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [newForm, setNewForm] = useState({ name: '', description: '', sections: '', specialty: '' });
-
-  const handleCreate = () => {
-    if (!newForm.name.trim()) { toast.error('Template name is required'); return; }
-    const t: Template = {
-      id: `custom-${Date.now()}` as NoteTemplate,
-      name: newForm.name,
-      description: newForm.description || 'Custom template',
-      sections: newForm.sections.split(',').map(s => s.trim()).filter(Boolean),
-      specialty: newForm.specialty || 'Custom',
-      isCustom: true,
-      isDefault: false,
-    };
-    const nextTemplates = [...customTemplates, t];
-    const nextAdded = [...addedIds, t.id];
-    setCustomTemplates(nextTemplates);
-    setAddedIds(nextAdded);
-    persistPreferences(nextAdded, nextTemplates);
-    setIsCreateOpen(false);
-    setNewForm({ name: '', description: '', sections: '', specialty: '' });
-    toast.success('Template created and added to My Templates!');
-  };
-
   // ── Edit — navigate to full editor page ─────────────────────────────────────
   const handleOpenEdit = (t: Template) => {
     navigate(`/templates/${t.id}/edit`);
@@ -231,7 +205,7 @@ export default function TemplatesPage() {
               <motion.button
                 whileHover={{ scale: 1.04, boxShadow: '0 0 24px rgba(16,185,129,0.35)' }}
                 whileTap={{ scale: 0.97 }}
-                onClick={() => setIsCreateOpen(true)}
+                onClick={() => navigate('/templates/new')}
                 className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/25 self-start md:self-auto whitespace-nowrap"
               >
                 <Plus size={16} /> Create New Template
@@ -328,35 +302,7 @@ export default function TemplatesPage() {
             </AnimatePresence>
           </motion.div>
 
-          {/* ── Create Modal ────────────────────────────────────────────────────── */}
-          <Modal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} title="Create New Template">
-            <div className="space-y-4">
-              <Input label="Template Name" value={newForm.name}
-                onChange={e => setNewForm(p => ({ ...p, name: e.target.value }))}
-                placeholder="e.g., Neurology Assessment" />
-              <Input label="Description" value={newForm.description}
-                onChange={e => setNewForm(p => ({ ...p, description: e.target.value }))}
-                placeholder="Brief description of this template" />
-              <Input label="Sections (comma-separated)" value={newForm.sections}
-                onChange={e => setNewForm(p => ({ ...p, sections: e.target.value }))}
-                placeholder="e.g., Chief Complaint, History, Exam, Plan" />
-              <Input label="Specialty" value={newForm.specialty}
-                onChange={e => setNewForm(p => ({ ...p, specialty: e.target.value }))}
-                placeholder="e.g., Neurology" />
-              <div className="flex gap-3 pt-4">
-                <button onClick={() => setIsCreateOpen(false)}
-                  className="flex-1 py-2.5 border border-white/20 text-slate-300 rounded-xl hover:bg-white/10 font-semibold text-sm transition-all">
-                  Cancel
-                </button>
-                <button onClick={handleCreate}
-                  className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/25 hover:opacity-90 transition-all">
-                  Create Template
-                </button>
-              </div>
-            </div>
-          </Modal>
-
-          {/* Edit navigates to /templates/:id/edit — no modal needed */}
+          {/* Create navigates to /templates/new and Edit to /templates/:id/edit — no modal needed */}
 
         </div>
       </div>

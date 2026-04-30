@@ -242,6 +242,14 @@ function App() {
           }
         />
         <Route
+          path="/templates/new"
+          element={
+            <ProtectedRoute>
+              <TemplateEditorPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/templates/:id/edit"
           element={
             <ProtectedRoute>
