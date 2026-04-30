@@ -376,11 +376,12 @@ export const audioApi = {
     transcription: string,
     template: string,
     patientName?: string,
-    sectionSettings?: Array<{ title: string; verbosity: string; styling: string; content: string; stylingInstructions: string }>
+    sectionSettings?: Array<{ title: string; verbosity: string; styling: string; content: string; stylingInstructions: string }>,
+    patientContext?: string
   ) => {
     return apiFetch<{ content: NoteContent; template: string; source: 'ai' | 'mock' }>('/audio/generate-note', {
       method: 'POST',
-      body: JSON.stringify({ transcription, template, patientName, sectionSettings }),
+      body: JSON.stringify({ transcription, template, patientName, sectionSettings, patientContext }),
     });
   },
 

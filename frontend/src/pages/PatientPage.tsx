@@ -76,6 +76,10 @@ function storageKey(name: string) {
   return `pronote_patient_${name.toLowerCase().replace(/\s+/g, '_')}`;
 }
 
+function contextStorageKey(name: string) {
+  return `pronote_patient_context_${name.toLowerCase().replace(/\s+/g, '_')}`;
+}
+
 function loadProfile(name: string): PatientProfile {
   try {
     const raw = localStorage.getItem(storageKey(name));
@@ -87,6 +91,24 @@ function loadProfile(name: string): PatientProfile {
 function saveProfile(profile: PatientProfile) {
   try {
     localStorage.setItem(storageKey(profile.name), JSON.stringify(profile));
+  } catch {}
+}
+
+function loadPatientContext(name: string): string {
+  try {
+    return localStorage.getItem(contextStorageKey(name)) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function savePatientContext(name: string, context: string) {
+  try {
+    if (context.trim()) {
+      localStorage.setItem(contextStorageKey(name), context);
+    } else {
+      localStorage.removeItem(contextStorageKey(name));
+    }
   } catch {}
 }
 
@@ -138,6 +160,9 @@ export default function PatientPage() {
   const patientName = decodeURIComponent(encodedName || '');
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [profile, setProfile] = useState<PatientProfile>(loadProfile(patientName));
+  const [patientContext, setPatientContext] = useState<string>(() => loadPatientContext(patientName));
+  const [contextDirty, setContextDirty] = useState(false);
+  const [isSavingContext, setIsSavingContext] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [showPronounMenu, setShowPronounMenu] = useState(false);
   const [showCountryMenu, setShowCountryMenu] = useState(false);
@@ -173,6 +198,16 @@ export default function PatientPage() {
     saveProfile(profile);
     setIsDirty(false);
     toast.success('Patient profile saved');
+  };
+
+  const handleSaveContext = async () => {
+    setIsSavingContext(true);
+    // Brief delay so the spinner is perceivable for empty / instant saves.
+    await new Promise(r => setTimeout(r, 250));
+    savePatientContext(patientName, patientContext);
+    setContextDirty(false);
+    setIsSavingContext(false);
+    toast.success('Patient context saved');
   };
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -450,11 +485,56 @@ export default function PatientPage() {
               />
             )}
 
-            {(activeTab === 'context' || activeTab === 'treatment' || activeTab === 'reports') && (
+            {activeTab === 'context' && (
+              <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6 sm:p-8">
+                <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Patient Context</h2>
+                <p className="text-sm text-slate-400 leading-relaxed">
+                  This context will be used by the system when generating notes. It will apply to all notes for this patient.
+                </p>
+                <p className="text-sm text-slate-400 leading-relaxed mb-5">
+                  Context may include known conditions, goals or details which do not come up in a conversation but may affect the note.
+                </p>
+
+                <textarea
+                  value={patientContext}
+                  onChange={e => {
+                    setPatientContext(e.target.value);
+                    setContextDirty(true);
+                  }}
+                  rows={10}
+                  placeholder="e.g., Patient has type 2 diabetes (HbA1c 7.4 last quarter), is on metformin 500mg BID, allergic to penicillin, and is working toward losing 10 lb by end of year."
+                  className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.12] rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/40 transition-all text-sm resize-y leading-relaxed"
+                />
+
+                <div className="flex justify-end mt-5">
+                  <motion.button
+                    whileHover={contextDirty ? { scale: 1.02 } : undefined}
+                    whileTap={contextDirty ? { scale: 0.97 } : undefined}
+                    onClick={handleSaveContext}
+                    disabled={!contextDirty || isSavingContext}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/25 hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+                  >
+                    {isSavingContext ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Saving…
+                      </>
+                    ) : (
+                      <>
+                        <Save size={15} />
+                        Save Context
+                      </>
+                    )}
+                  </motion.button>
+                </div>
+              </div>
+            )}
+
+            {(activeTab === 'treatment' || activeTab === 'reports') && (
               <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-10 text-center">
                 <ClipboardList size={36} className="mx-auto mb-4 text-slate-500" />
                 <p className="text-white font-medium mb-2">
-                  {activeTab === 'context' ? 'Patient Context' : activeTab === 'treatment' ? 'Treatment Plan' : 'Reports'} coming soon
+                  {activeTab === 'treatment' ? 'Treatment Plan' : 'Reports'} coming soon
                 </p>
                 <p className="text-slate-400 text-sm">This section will be available in an upcoming update.</p>
               </div>

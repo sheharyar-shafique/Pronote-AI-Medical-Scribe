@@ -247,7 +247,7 @@ router.post('/transcribe', async (req: AuthenticatedRequest, res: Response, next
 // POST /api/audio/generate-note - Generate clinical note from transcription
 router.post('/generate-note', async (req: AuthenticatedRequest, res: Response, next) => {
   try {
-    const { transcription, template, patientName, sectionSettings } = req.body;
+    const { transcription, template, patientName, sectionSettings, patientContext } = req.body;
 
     if (!transcription || !template) {
       throw new AppError('Transcription and template are required', 400);
@@ -271,7 +271,16 @@ router.post('/generate-note', async (req: AuthenticatedRequest, res: Response, n
       const systemPrompt = sectionSettings && sectionSettings.length > 0
         ? buildDynamicPrompt(sectionSettings)
         : getSystemPromptForTemplate(template);
-      const userMessage = `Generate a clinical note from this transcription:\n\n${transcription}`;
+
+      // Patient Context (set on the patient's profile page) is durable, applies to every
+      // note for this patient, and may include known conditions / goals / details that
+      // never come up in conversation. Prepend it to the transcription so the AI can use
+      // it without re-prompting per recording.
+      const trimmedContext =
+        typeof patientContext === 'string' ? patientContext.trim() : '';
+      const userMessage = trimmedContext
+        ? `Persistent patient context (apply to every note for this patient — combine with the transcription, do not output verbatim):\n${trimmedContext}\n\nGenerate a clinical note from this transcription:\n\n${transcription}`
+        : `Generate a clinical note from this transcription:\n\n${transcription}`;
 
       let lastError: Error | null = null;
 
