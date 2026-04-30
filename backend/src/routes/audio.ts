@@ -175,6 +175,22 @@ router.post('/transcribe', async (req: AuthenticatedRequest, res: Response, next
         );
       }
 
+      // Whisper rejects uploads over 25 MB. Reject upfront with a clear message so the
+      // user knows to re-record at a lower bitrate (or split the recording) instead of
+      // waiting for the OpenAI call to fail.
+      const WHISPER_MAX_BYTES = 25 * 1024 * 1024;
+      if (buffer.length > WHISPER_MAX_BYTES) {
+        await supabase
+          .from('audio_files')
+          .update({ transcription_status: 'failed' })
+          .eq('id', audioFileId);
+        const mb = (buffer.length / (1024 * 1024)).toFixed(1);
+        throw new AppError(
+          `Audio file is ${mb} MB — Whisper accepts up to 25 MB per upload. Please record at a lower bitrate or in shorter segments.`,
+          413
+        );
+      }
+
       // Write to a temp file and stream it. fs.createReadStream is the upload method
       // OpenAI's docs themselves recommend; it always conveys the filename + extension
       // correctly to Whisper, which is what the "Invalid file format" error was about.

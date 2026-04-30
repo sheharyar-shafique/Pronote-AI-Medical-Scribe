@@ -429,9 +429,15 @@ export const useRecordingStore = create<RecordingState>()((set, get) => ({
       const mimeType =
         candidates.find(t => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t)) || '';
 
-      const mediaRecorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
+      // Cap bitrate at 24 kbps mono Opus. Speech is fully intelligible at this rate
+      // and a 90-minute recording lands at ~16 MB — comfortably under Whisper's
+      // hard 25 MB upload limit. Without this cap, browsers default to 48-128 kbps
+      // and 30+ minute recordings silently exceed Whisper's limit.
+      const recorderOpts: MediaRecorderOptions = {
+        audioBitsPerSecond: 24000,
+      };
+      if (mimeType) recorderOpts.mimeType = mimeType;
+      const mediaRecorder = new MediaRecorder(stream, recorderOpts);
       const audioChunks: Blob[] = [];
 
       mediaRecorder.ondataavailable = (event) => {

@@ -98,18 +98,30 @@ app.use((_req, res) => {
 
 // Only listen when not in serverless environment
 if (process.env.VERCEL !== '1') {
+  // Whisper transcription of long audio (30+ min) can take several minutes; bump
+  // the Node HTTP server timeouts so the connection isn't dropped mid-request.
+  // 0 = no timeout. headersTimeout/keepAliveTimeout govern proxy behavior.
+  const configureTimeouts = (server: import('http').Server) => {
+    server.timeout = 0;                        // no socket inactivity timeout
+    server.requestTimeout = 0;                 // no per-request timeout
+    server.headersTimeout = 20 * 60 * 1000;    // 20 min for headers
+    server.keepAliveTimeout = 20 * 60 * 1000;  // 20 min keep-alive
+  };
+
   // Initialize PayPal plans then start server
   initializePayPalPlans().then(() => {
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`🚀 Pronote API server running on http://localhost:${PORT}`);
       console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
+    configureTimeouts(server);
   }).catch((err) => {
     console.error('Startup error:', err);
     // Start anyway even if PayPal init fails
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`🚀 Pronote API server running on http://localhost:${PORT}`);
     });
+    configureTimeouts(server);
   });
 }
 
