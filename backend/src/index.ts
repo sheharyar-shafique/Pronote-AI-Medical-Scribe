@@ -43,6 +43,19 @@ const allowedOrigins = rawOrigins
   .map((o) => o.trim().replace(/\/$/, '')) // strip trailing slashes
   .filter(Boolean);
 
+// Always-allowed origin patterns: localhost / 127.0.0.1 / 0.0.0.0 on any port,
+// plus the Capacitor file:// origins that iOS and Android use when serving the
+// bundled mobile app from the WebView. These don't need to live in FRONTEND_URL
+// because they aren't deploy-targets — they're development hosts and on-device
+// runtimes that we can never reasonably enumerate.
+const isDevOrCapacitorOrigin = (origin: string): boolean => {
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/.test(origin)) return true;
+  if (origin === 'capacitor://localhost') return true; // iOS WKWebView
+  if (origin === 'http://localhost') return true;       // Android WebView (no port)
+  if (origin === 'ionic://localhost') return true;      // legacy Ionic bridge
+  return false;
+};
+
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, Postman, server-to-server)
@@ -51,7 +64,11 @@ app.use(cors({
     // Normalize incoming origin (strip trailing slash)
     const normalizedOrigin = origin.replace(/\/$/, '');
 
-    if (allowedOrigins.length === 0 || allowedOrigins.includes(normalizedOrigin)) {
+    if (
+      allowedOrigins.length === 0 ||
+      allowedOrigins.includes(normalizedOrigin) ||
+      isDevOrCapacitorOrigin(normalizedOrigin)
+    ) {
       return callback(null, true);
     }
 
