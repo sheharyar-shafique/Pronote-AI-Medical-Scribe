@@ -188,15 +188,13 @@ export default function CapturePage() {
     setIsProcessing(true);
     try {
       // Long recordings are auto-segmented by the recorder into <=10-min chunks so each
-      // upload stays under Whisper's 25 MB limit. Iterate the segments, upload + transcribe
-      // each in turn, and concatenate the transcripts before generating the note.
+      // upload stays under Whisper's 25 MB limit. Upload + transcribe all segments IN
+      // PARALLEL — sequential processing made a 90-min recording wait ~9 min for results.
+      // Promise.all preserves array order so the concatenated transcript is in temporal order.
       const segments = await stopRecording();
 
       if (segments && segments.length > 0) {
-        const transcripts: string[] = [];
-
-        for (let i = 0; i < segments.length; i++) {
-          const segBlob = segments[i];
+        const transcribeSegment = async (segBlob: Blob, i: number): Promise<string> => {
           const blobType = segBlob.type || 'audio/webm';
           const ext =
             blobType.includes('mp4') ? 'mp4'
@@ -210,10 +208,10 @@ export default function CapturePage() {
           );
           const uploadResult = await audioApi.upload(segFile);
           const transcriptionResult = await audioApi.transcribe(uploadResult.id);
-          if (transcriptionResult.transcription?.trim()) {
-            transcripts.push(transcriptionResult.transcription.trim());
-          }
-        }
+          return transcriptionResult.transcription?.trim() ?? '';
+        };
+
+        const transcripts = (await Promise.all(segments.map(transcribeSegment))).filter(Boolean);
 
         if (transcripts.length === 0) {
           throw new Error('Transcription returned no text — the recording may have been silent.');
