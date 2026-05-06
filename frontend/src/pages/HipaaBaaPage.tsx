@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Shield, FileCheck, Download, CheckCircle, AlertCircle,
+  Shield, FileCheck, Download, CheckCircle,
   Building2, User, Calendar, Lock
 } from 'lucide-react';
 import { Sidebar } from '../components/layout';
@@ -14,6 +14,13 @@ interface BaaStatus {
   acceptedAt: string | null;
   organization: string | null;
   signerTitle: string | null;
+  // Tamper-evident audit fields populated server-side at /accept-baa.
+  // currentBaaVersion is the version the server is currently serving — if it
+  // differs from `baaVersion`, the BAA template has been updated since this
+  // user signed and the UI may want to prompt for re-acceptance later.
+  baaVersion: string | null;
+  ipAddress: string | null;
+  currentBaaVersion: string | null;
   name: string;
   email: string;
   plan: string;
@@ -47,7 +54,10 @@ export default function HipaaBaaPage() {
   const [accepting, setAccepting] = useState(false);
   const [form, setForm] = useState({ organizationName: '', signerTitle: 'Practice Administrator' });
 
-  const isGroupAnnual = user?.subscriptionPlan === 'group_annual';
+  // HIPAA BAA is now included in every plan — no plan-gating below. The constant
+  // is intentionally removed; the prior `isGroupAnnual` flag and the "Group Annual
+  // Plan Required" banner have been deleted entirely so any authenticated user can
+  // sign and download their BAA.
 
   useEffect(() => {
     apiCall<BaaStatus>('/support/baa-status')
@@ -118,20 +128,6 @@ export default function HipaaBaaPage() {
               </div>
             </div>
           </motion.div>
-
-          {/* Plan gate */}
-          {!isGroupAnnual && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-6 mb-6">
-              <div className="flex items-start gap-4">
-                <AlertCircle size={22} className="text-amber-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-amber-400 font-bold mb-1">Group Annual Plan Required</p>
-                  <p className="text-slate-400 text-sm">HIPAA BAA is included in the <strong className="text-white">Group Annual ($460/year)</strong> plan. Upgrade to access this document and HIPAA compliance features.</p>
-                </div>
-              </div>
-            </motion.div>
-          )}
 
           {loading ? (
             <div className="flex justify-center py-20">
@@ -211,8 +207,7 @@ export default function HipaaBaaPage() {
                         value={form.organizationName}
                         onChange={e => setForm(f => ({ ...f, organizationName: e.target.value }))}
                         placeholder="e.g. Riverside Family Medicine"
-                        disabled={!isGroupAnnual}
-                        className="w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-4 py-3 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-4 py-3 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30"
                       />
                     </div>
                     <div>
@@ -223,8 +218,7 @@ export default function HipaaBaaPage() {
                         value={form.signerTitle}
                         onChange={e => setForm(f => ({ ...f, signerTitle: e.target.value }))}
                         placeholder="e.g. Practice Administrator, Chief Medical Officer"
-                        disabled={!isGroupAnnual}
-                        className="w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-4 py-3 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="w-full bg-white/[0.05] border border-white/[0.1] rounded-xl px-4 py-3 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30"
                       />
                     </div>
                     <div className="flex items-center gap-2 p-3 bg-white/[0.03] border border-white/[0.06] rounded-xl text-xs text-slate-500">
@@ -235,7 +229,7 @@ export default function HipaaBaaPage() {
 
                   <button
                     onClick={handleAccept}
-                    disabled={!isGroupAnnual || accepting || !form.organizationName.trim()}
+                    disabled={accepting || !form.organizationName.trim()}
                     className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/25 hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                     {accepting ? (
                       <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Processing...</>

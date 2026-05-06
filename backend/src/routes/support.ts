@@ -65,29 +65,63 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next) => {
   }
 });
 
+// Identifies the BAA template currently presented to users. Bump this when the
+// BAA text in HipaaBaaPage.tsx changes so the audit trail records exactly
+// which version each customer agreed to. Past acceptances are NEVER mutated —
+// HIPAA requires the agreement-as-signed to remain intact.
+const BAA_VERSION = '2026-05-06.v1';
+
 // POST /api/support/accept-baa — Accept HIPAA BAA
+//
+// HIPAA BAA is now available on every paid plan (no subscription gating).
+// Acceptance creates a tamper-evident audit record on the user row AND a
+// row in activity_logs that captures the metadata HIPAA-style audits expect:
+// who, when, from where (IP), via what client (user-agent), and which version
+// of the BAA they agreed to.
 router.post('/accept-baa', async (req: AuthenticatedRequest, res: Response, next) => {
   try {
     const { organizationName, signerTitle } = req.body;
     if (!organizationName?.trim()) throw new AppError('Organization name is required', 400);
 
     const acceptedAt = new Date().toISOString();
+    // express trust-proxy is set in src/index.ts so req.ip resolves to the
+    // real client IP (not the Render proxy IP) when X-Forwarded-For is set.
+    const ipAddress = req.ip || req.socket?.remoteAddress || 'unknown';
+    const userAgent = req.get('user-agent')?.slice(0, 500) || 'unknown';
 
     await supabase.from('users').update({
       hipaa_baa_accepted: true,
       hipaa_baa_accepted_at: acceptedAt,
       hipaa_baa_organization: organizationName.trim(),
       hipaa_baa_signer_title: signerTitle?.trim() || 'Authorized Signatory',
+      hipaa_baa_version: BAA_VERSION,
+      hipaa_baa_ip_address: ipAddress,
+      hipaa_baa_user_agent: userAgent,
     }).eq('id', req.user!.id);
 
+    // Activity log — append-only; never edit or delete past entries. This is
+    // what gets shown to a HIPAA auditor as proof of consent.
     await supabase.from('activity_logs').insert({
       user_id: req.user!.id,
       action: 'hipaa_baa_accepted',
       resource_type: 'compliance',
-      metadata: { organizationName, signerTitle, acceptedAt },
+      metadata: {
+        organizationName: organizationName.trim(),
+        signerTitle: signerTitle?.trim() || 'Authorized Signatory',
+        acceptedAt,
+        baaVersion: BAA_VERSION,
+        ipAddress,
+        userAgent,
+        userEmail: req.user!.email,
+      },
     });
 
-    res.json({ success: true, acceptedAt, message: 'HIPAA BAA accepted and recorded.' });
+    res.json({
+      success: true,
+      acceptedAt,
+      baaVersion: BAA_VERSION,
+      message: 'HIPAA BAA accepted and recorded.',
+    });
   } catch (error) {
     next(error);
   }
@@ -96,9 +130,11 @@ router.post('/accept-baa', async (req: AuthenticatedRequest, res: Response, next
 // GET /api/support/baa-status — Get BAA acceptance status
 router.get('/baa-status', async (req: AuthenticatedRequest, res: Response, next) => {
   try {
+    // Single literal select string — Supabase's TS inference parses this at
+    // compile time and would lose typing if we used string concatenation.
     const { data: user } = await supabase
       .from('users')
-      .select('hipaa_baa_accepted, hipaa_baa_accepted_at, hipaa_baa_organization, hipaa_baa_signer_title, name, email, subscription_plan')
+      .select('hipaa_baa_accepted, hipaa_baa_accepted_at, hipaa_baa_organization, hipaa_baa_signer_title, hipaa_baa_version, hipaa_baa_ip_address, name, email, subscription_plan')
       .eq('id', req.user!.id)
       .single();
 
@@ -107,6 +143,9 @@ router.get('/baa-status', async (req: AuthenticatedRequest, res: Response, next)
       acceptedAt: user?.hipaa_baa_accepted_at || null,
       organization: user?.hipaa_baa_organization || null,
       signerTitle: user?.hipaa_baa_signer_title || null,
+      baaVersion: user?.hipaa_baa_version || null,
+      ipAddress: user?.hipaa_baa_ip_address || null,
+      currentBaaVersion: BAA_VERSION,
       name: user?.name,
       email: user?.email,
       plan: user?.subscription_plan,
