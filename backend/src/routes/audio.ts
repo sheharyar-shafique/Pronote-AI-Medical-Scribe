@@ -85,6 +85,73 @@ router.post('/upload', upload.single('audio'), async (req: AuthenticatedRequest,
   }
 });
 
+// POST /api/audio/transcribe-direct - Fast path: transcribe audio WITHOUT storing in Supabase.
+// Skips upload→DB→download round-trip, saving 4-8 seconds per segment.
+// Used by the frontend for real-time capture where speed matters most.
+router.post('/transcribe-direct', upload.single('audio'), async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    if (!req.file) {
+      throw new AppError('No audio file provided', 400);
+    }
+
+    if (!openai) {
+      throw new AppError('AI service not configured', 500);
+    }
+
+    const buffer = req.file.buffer;
+
+    // Reject tiny files
+    if (buffer.length < 1024) {
+      throw new AppError(`Audio file is too small (${buffer.length} bytes) — recording likely failed.`, 422);
+    }
+
+    // Reject files over 25 MB (Whisper limit)
+    if (buffer.length > 25 * 1024 * 1024) {
+      throw new AppError('Audio file exceeds 25 MB Whisper limit.', 413);
+    }
+
+    // Detect format from magic bytes
+    const head = buffer.slice(0, 16);
+    const sniffedExt =
+      head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3 ? 'webm'
+        : head[0] === 0x4f && head[1] === 0x67 && head[2] === 0x67 && head[3] === 0x53 ? 'ogg'
+        : head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46 ? 'wav'
+        : head[0] === 0x49 && head[1] === 0x44 && head[2] === 0x33 ? 'mp3'
+        : head[4] === 0x66 && head[5] === 0x74 && head[6] === 0x79 && head[7] === 0x70 ? 'mp4'
+        : head[0] === 0xff && (head[1] & 0xf0) === 0xf0 ? 'mp3'
+        : 'webm';
+
+    // Write temp file and transcribe directly — no Supabase involved
+    const tempPath = path.join(os.tmpdir(), `whisper-direct-${Date.now()}.${sniffedExt}`);
+    await fs.promises.writeFile(tempPath, buffer);
+
+    try {
+      const response = await openai.audio.transcriptions.create({
+        file: fs.createReadStream(tempPath),
+        model: 'whisper-1',
+        language: 'en',
+        response_format: 'text',
+      });
+
+      const transcription = typeof response === 'string' ? response : (response as any).text || '';
+
+      // Quick silence check
+      const meaningful = transcription.trim().split(/\s+/).filter((w: string) => w.length > 1);
+      if (meaningful.length < 3) {
+        res.json({ transcription: '', status: 'empty' });
+        return;
+      }
+
+      res.json({ transcription, status: 'completed' });
+    } finally {
+      // Always clean up temp file
+      fs.promises.unlink(tempPath).catch(() => {});
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
 // POST /api/audio/transcribe - Transcribe audio file using OpenAI Whisper
 router.post('/transcribe', async (req: AuthenticatedRequest, res: Response, next) => {
   try {
@@ -198,6 +265,8 @@ router.post('/transcribe', async (req: AuthenticatedRequest, res: Response, next
       await fs.promises.writeFile(tempPath, buffer);
 
       try {
+        // Use text format for maximum speed. Speaker identification is handled
+        // entirely by the GPT prompt — timestamps are not worth the extra latency.
         const response = await openai.audio.transcriptions.create({
           file: fs.createReadStream(tempPath),
           model: 'whisper-1',
@@ -205,7 +274,7 @@ router.post('/transcribe', async (req: AuthenticatedRequest, res: Response, next
           response_format: 'text',
         });
 
-        transcription = response;
+        transcription = typeof response === 'string' ? response : (response as any).text || '';
       } catch (whisperError: any) {
         console.error('Whisper transcription error:', whisperError?.message, whisperError?.status, whisperError?.error);
         await supabase
@@ -263,7 +332,7 @@ router.post('/transcribe', async (req: AuthenticatedRequest, res: Response, next
 // POST /api/audio/generate-note - Generate clinical note from transcription
 router.post('/generate-note', async (req: AuthenticatedRequest, res: Response, next) => {
   try {
-    const { transcription, template, patientName, sectionSettings, patientContext, treatmentPlan } = req.body;
+    const { transcription, template, patientName, sectionSettings, patientContext, treatmentPlan, templateSections } = req.body;
 
     if (!transcription || !template) {
       throw new AppError('Transcription and template are required', 400);
@@ -283,10 +352,23 @@ router.post('/generate-note', async (req: AuthenticatedRequest, res: Response, n
 
     if (openai) {
       // ── Real AI path ──────────────────────────────────────────────────────
-      // Use dynamic prompt if sectionSettings provided, otherwise use template-based prompt
-      const systemPrompt = sectionSettings && sectionSettings.length > 0
-        ? buildDynamicPrompt(sectionSettings)
-        : getSystemPromptForTemplate(template);
+      // Priority: (1) custom sectionSettings → dynamic prompt
+      //           (2) dedicated built-in prompt for the template id
+      //           (3) templateSections from the frontend → auto-generated prompt
+      //           (4) generic default fallback
+      let systemPrompt: string;
+      if (sectionSettings && sectionSettings.length > 0) {
+        systemPrompt = buildDynamicPrompt(sectionSettings);
+      } else {
+        const dedicatedPrompt = getDedicatedPrompt(template);
+        if (dedicatedPrompt) {
+          systemPrompt = dedicatedPrompt;
+        } else if (Array.isArray(templateSections) && templateSections.length > 0) {
+          systemPrompt = buildPromptFromSections(templateSections, template);
+        } else {
+          systemPrompt = getSystemPromptForTemplate(template);
+        }
+      }
 
       // Patient Context + Treatment Plan (both set on the patient's profile page) are
       // durable, apply to every note for this patient, and may include known conditions /
@@ -310,9 +392,24 @@ router.post('/generate-note', async (req: AuthenticatedRequest, res: Response, n
       }
       const preamble = preambleParts.join('\n\n');
 
+      // For very long transcripts (e.g. 60-90 min), the token count can be massive
+      // which makes GPT slow. Truncate to ~6000 words (~8000 tokens) — this covers
+      // the clinically relevant content while keeping response time under 20 seconds.
+      const MAX_TRANSCRIPT_WORDS = 6000;
+      let processedTranscription = transcription as string;
+      const wordCount = processedTranscription.split(/\s+/).length;
+      if (wordCount > MAX_TRANSCRIPT_WORDS) {
+        const words = processedTranscription.split(/\s+/);
+        // Keep the first 1500 words (beginning of visit) and last 4500 words (most recent/relevant)
+        const beginning = words.slice(0, 1500).join(' ');
+        const ending = words.slice(-4500).join(' ');
+        processedTranscription = `${beginning}\n\n[... middle portion of ${wordCount} word transcript condensed for processing speed ...]\n\n${ending}`;
+        console.log(`[perf] Transcript truncated from ${wordCount} to ~${MAX_TRANSCRIPT_WORDS} words for faster GPT processing`);
+      }
+
       const userMessage = preamble
-        ? `${preamble}\n\nGenerate a clinical note from this transcription:\n\n${transcription}`
-        : `Generate a clinical note from this transcription:\n\n${transcription}`;
+        ? `${preamble}\n\nGenerate a clinical note from this transcription:\n\n${processedTranscription}`
+        : `Generate a clinical note from this transcription:\n\n${processedTranscription}`;
 
       let lastError: Error | null = null;
 
@@ -796,11 +893,251 @@ IMPORTANT RULES:
 - "topic" is REQUIRED: a short, specific clinical title summarizing this visit (4-8 words, Title Case).
   Good examples: "Leg and Headache Symptoms Evaluation", "Acute Upper Respiratory Infection Follow-Up",
   "Chest Pain Evaluation with Hypertension". Do NOT include the patient name. Do NOT start with "Patient"
-  or "Visit for". Do NOT use generic titles like "Clinical Note".`;
+  or "Visit for". Do NOT use generic titles like "Clinical Note".
+
+SPEAKER IDENTIFICATION (CRITICAL):
+The transcription is from a recorded two-person conversation between a CLINICIAN and a PATIENT,
+captured with a single microphone. Speakers are NOT labeled in the text.
+Use contextual clues to determine who is speaking:
+- Questions about symptoms, examination maneuvers, history inquiries → CLINICIAN speaking
+- Descriptions of symptoms, personal concerns, pain reports → PATIENT speaking
+- Clinical instructions, prescriptions, follow-up plans → CLINICIAN speaking
+Apply this when writing each section — e.g. subjective sections should contain ONLY the PATIENT's
+reported symptoms and history, while objective sections should contain ONLY the CLINICIAN's findings.`;
+}
+
+/**
+ * Check if a template has a dedicated hand-written prompt. Returns the prompt
+ * string if found, or null if the template should use a dynamically-generated one.
+ */
+function getDedicatedPrompt(template: string): string | null {
+  const DETAIL_INSTRUCTION = getDetailInstruction();
+  const prompts: Record<string, string> = getDedicatedPrompts(DETAIL_INSTRUCTION);
+  return prompts[template.toLowerCase()] || null;
 }
 
 function getSystemPromptForTemplate(template: string): string {
-  const DETAIL_INSTRUCTION = `
+  const DETAIL_INSTRUCTION = getDetailInstruction();
+  const prompts = getDedicatedPrompts(DETAIL_INSTRUCTION);
+  return prompts[template.toLowerCase()] || prompts.default;
+}
+
+/**
+ * Build a dynamic system prompt from an array of section NAMES (e.g. ['Chief Complaint',
+ * 'History of Present Illness', 'Physical Exam', 'Assessment', 'Plan']).
+ *
+ * This is the key fix: the frontend defines 40+ templates with specific section arrays,
+ * but only 8 had dedicated prompts. All others silently fell to a generic SOAP default.
+ * Now, when the frontend sends templateSections, we auto-generate a prompt that asks GPT
+ * to return JSON with exactly those sections — making every template functional.
+ */
+function buildPromptFromSections(sections: string[], templateId: string): string {
+  const DETAIL_INSTRUCTION = getDetailInstruction();
+
+  // Map human-readable section titles to JSON-safe camelCase keys.
+  // This MUST match the sectionKeyMap in the frontend's NoteEditorPage so the
+  // generated JSON lands in the right fields.
+  const sectionKeyMap: Record<string, string> = {
+    'Subjective': 'subjective',
+    'Objective': 'objective',
+    'Assessment': 'assessment',
+    'Plan': 'plan',
+    'Patient Instructions': 'instructions',
+    'Instructions': 'instructions',
+    'Chief Complaint': 'chiefComplaint',
+    'History of Present Illness': 'historyOfPresentIllness',
+    'History': 'historyOfPresentIllness',
+    'Review of Systems': 'reviewOfSystems',
+    'Physical Exam': 'physicalExam',
+    'Physical Examination Findings': 'physicalExam',
+    'Mental Status Exam': 'physicalExam',
+    'Mental Status': 'physicalExam',
+    'Medical Decision Making': 'medicalDecisionMaking',
+    'Follow-Up': 'followUp',
+    'Follow-Up Schedule': 'followUp',
+    'Assessment & Plan': 'plan',
+    'Letter to Patient': 'instructions',
+    'Patient Identification': 'chiefComplaint',
+    'Medical History': 'historyOfPresentIllness',
+    'Current Medications': 'reviewOfSystems',
+    'Identifying Information': 'chiefComplaint',
+    'Past Medical History': 'historyOfPresentIllness',
+    'Date & Provider': 'chiefComplaint',
+    'Clinical Findings': 'objective',
+    'Patient Information': 'chiefComplaint',
+    'Care Plan': 'plan',
+    'Medications': 'reviewOfSystems',
+    'Goals & Education': 'instructions',
+    'Health Goals': 'chiefComplaint',
+    'Lifestyle Assessment': 'subjective',
+    'Nutrition': 'objective',
+    'Physical Activity': 'assessment',
+    'Mental Wellbeing': 'reviewOfSystems',
+    'Safety Assessment': 'medicalDecisionMaking',
+    'Presenting Problem': 'chiefComplaint',
+    'Diagnosis': 'assessment',
+    'Risk Factors': 'medicalDecisionMaking',
+    'Social History': 'reviewOfSystems',
+    'Client Identification': 'chiefComplaint',
+    'Session Narrative': 'subjective',
+    'Clinical Observations': 'objective',
+    'Progress Evaluation': 'assessment',
+    'Plan of Action': 'plan',
+    'Demographics': 'chiefComplaint',
+    'Presenting Concerns': 'subjective',
+    'Psychiatric History': 'historyOfPresentIllness',
+    'Substance Use History': 'reviewOfSystems',
+    'Family History': 'reviewOfSystems',
+    'Diagnosis & Treatment Plan': 'plan',
+    'Session Summary': 'subjective',
+    'Interventions': 'assessment',
+    'Client Response': 'objective',
+    'Client Presentation': 'subjective',
+    'Progress': 'assessment',
+    'Growth & Development': 'objective',
+    'Developmental History': 'historyOfPresentIllness',
+    'Cardiac History': 'historyOfPresentIllness',
+    'ECG/Imaging': 'objective',
+    'Diagnostic Findings': 'objective',
+    'Skin Exam': 'physicalExam',
+    'Lesion Description': 'objective',
+    'Distribution': 'physicalExam',
+    'Associated Symptoms': 'reviewOfSystems',
+    'Mechanism of Injury': 'historyOfPresentIllness',
+    'Imaging': 'objective',
+    'Imaging Findings': 'objective',
+    'Injury Mechanism': 'historyOfPresentIllness',
+    // Therapy-specific
+    'Goal': 'chiefComplaint',
+    'Intervention': 'assessment',
+    'Response': 'objective',
+    // Nursing
+    'Patient Assessment': 'subjective',
+    'Vital Signs': 'objective',
+    'Nursing Interventions': 'assessment',
+    'Medication Administration': 'reviewOfSystems',
+    'Patient Response': 'objective',
+    'Plan of Care': 'plan',
+    'Patient Demographics': 'chiefComplaint',
+    'Diagnosis & History': 'historyOfPresentIllness',
+    'Current Status': 'objective',
+    'Active Orders': 'plan',
+    'Handoff Notes': 'instructions',
+    // Dietetics
+    'Nutrition Diagnosis': 'assessment',
+    'Monitoring & Evaluation': 'followUp',
+    // Administrative
+    'Referring Provider': 'objective',
+    'Reason for Referral': 'chiefComplaint',
+    'Clinical Summary': 'assessment',
+    'Additional Notes': 'instructions',
+    'Consent Explanation': 'subjective',
+    'Risks & Benefits': 'objective',
+    'Patient Agreement': 'assessment',
+    'Provider Signature': 'plan',
+    'Clinical Justification': 'assessment',
+    'Provider Information': 'objective',
+    'Letter Statement': 'instructions',
+    'Patient Details': 'chiefComplaint',
+    'Diagnosis / Condition': 'assessment',
+    'Recommended Rest Period': 'plan',
+    'Restrictions': 'instructions',
+    'Provider Certification': 'followUp',
+    'Insurance Details': 'objective',
+    'Diagnosis Codes': 'assessment',
+    'Procedure Codes': 'plan',
+    'Claim Statement': 'instructions',
+    // Mental health extras
+    'Protective Factors': 'objective',
+    'Suicidal Ideation': 'assessment',
+    'Self-Harm History': 'historyOfPresentIllness',
+    'Safety Plan': 'plan',
+    'Clinician Determination': 'instructions',
+    'Biological Factors': 'subjective',
+    'Psychological Factors': 'objective',
+    'Social Factors': 'reviewOfSystems',
+    'Treatment Recommendations': 'plan',
+    'Session Information': 'chiefComplaint',
+    'Behavioral Observations': 'objective',
+    'Substance Use Update': 'reviewOfSystems',
+    'Therapeutic Interventions': 'assessment',
+    'Response to Treatment': 'objective',
+    // Therapy extras
+    'Emotions Tracked': 'subjective',
+    'Urges & Behaviors': 'objective',
+    'Skills Practiced': 'assessment',
+    'Therapist Notes': 'plan',
+    'Goals for Next Session': 'instructions',
+    'Family Members Present': 'chiefComplaint',
+    'Session Focus': 'subjective',
+    'Family Dynamics Observed': 'objective',
+    'Interventions Used': 'assessment',
+    'Family Response': 'objective',
+    'Clients Present': 'chiefComplaint',
+    'Relational Dynamics': 'objective',
+    'Couple Response': 'objective',
+    'Goals & Plan': 'plan',
+    // Physical / Occupational / Speech Therapy
+    'Medical & Treatment History': 'historyOfPresentIllness',
+    'Assessment Findings': 'objective',
+    'Treatment Goals': 'plan',
+    'Therapeutic Recommendations': 'instructions',
+    'Progress Tracking': 'followUp',
+    'Patient Goals': 'chiefComplaint',
+    'Activities Addressed': 'subjective',
+    'Functional Observations': 'objective',
+    'Adaptive Strategies': 'assessment',
+    'Progress Toward Goals': 'assessment',
+    'Communication Goals': 'chiefComplaint',
+    'Session Activities': 'subjective',
+    'Articulation & Language Observations': 'objective',
+    'Caregiver Education': 'instructions',
+  };
+
+  const getKey = (title: string): string =>
+    sectionKeyMap[title] || title.replace(/[^a-zA-Z0-9]/g, '').replace(/^(.)/, (_, c) => c.toLowerCase());
+
+  // Build the JSON schema example and per-section instructions
+  const sectionInstructions = sections.map(s => {
+    const key = getKey(s);
+    return `- "${key}" ("${s}"): Write thorough, clinically detailed content for this section based on the transcription. At minimum 3-5 sentences.`;
+  }).join('\n');
+
+  const jsonKeys = sections.map(s => `  "${getKey(s)}": "..."`).join(',\n');
+
+  // Always include instructions if not already present
+  const hasInstructions = sections.some(s =>
+    s.toLowerCase().includes('instruction') || getKey(s) === 'instructions'
+  );
+
+  const templateName = templateId
+    .split('-')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+
+  return `You are an expert medical documentation assistant.
+Generate a comprehensive ${templateName} from the given patient-clinician transcription.
+
+Return a JSON object with EXACTLY these fields plus a "topic" field:
+{
+  "topic": "...",
+${jsonKeys}${hasInstructions ? '' : ',\n  "instructions": "..."'}
+}
+
+SECTION REQUIREMENTS:
+${sectionInstructions}
+${hasInstructions ? '' : '- "instructions": MANDATORY patient instructions — medications, activity, follow-up, warning signs.'}
+
+IMPORTANT:
+- Return ONLY valid JSON. Do NOT wrap in markdown code blocks.
+- Use proper medical terminology throughout.
+- Every section MUST contain real clinical content derived from the transcription.
+- If the transcription doesn't mention something for a section, write reasonable clinical defaults or note "Not discussed during this encounter."
+${DETAIL_INSTRUCTION}`;
+}
+/** The DETAIL_INSTRUCTION block shared by all prompts. Extracted so it can be reused. */
+function getDetailInstruction(): string {
+  return `
 IMPORTANT RULES FOR ALL SECTIONS:
 - Each section must be THOROUGH and DETAILED — at minimum 3-5 sentences per section, more if the transcription warrants it.
 - Never abbreviate or summarize too briefly. Expand on every detail mentioned in the transcription.
@@ -823,9 +1160,28 @@ ALWAYS INCLUDE A "topic" FIELD in the JSON output, in addition to all other requ
   "Type 2 Diabetes Management Visit".
   Rules: Do NOT include the patient's name. Do NOT start with "Patient" or "Visit for". Do NOT use generic
   titles like "Clinical Note" or "Medical Visit". Make it specific to the actual chief complaint and findings.
-`;
 
-  const prompts: Record<string, string> = {
+SPEAKER IDENTIFICATION (CRITICAL):
+The transcription is from a recorded two-person conversation between a CLINICIAN and a PATIENT,
+captured with a single microphone. Speakers are NOT labeled in the text.
+You MUST use contextual clues to determine who is speaking at each point:
+- Questions about symptoms, examination maneuvers, medical history inquiries → CLINICIAN speaking
+- Descriptions of symptoms, personal concerns, pain reports, lifestyle details → PATIENT speaking
+- Clinical instructions, prescriptions, referrals, follow-up plans → CLINICIAN speaking
+- Confirmations like "yes", "no", "I understand" → use surrounding context to determine speaker
+
+Apply this speaker identification when populating each section:
+- "subjective" / "historyOfPresentIllness" / "chiefComplaint": capture ONLY what the PATIENT reported
+- "objective" / "physicalExam": capture ONLY the CLINICIAN's examination findings and observations
+- "assessment": the CLINICIAN's clinical reasoning and diagnoses
+- "plan" / "instructions": the CLINICIAN's management decisions and patient education
+Do NOT mix patient-reported symptoms into objective findings, and do NOT put clinician observations into the subjective section.
+`;
+}
+
+/** Hand-written prompts for the 8 templates that have dedicated, specialty-specific prompts. */
+function getDedicatedPrompts(DETAIL_INSTRUCTION: string): Record<string, string> {
+  return {
     soap: `You are an expert medical documentation assistant specializing in thorough clinical documentation.
 Generate a comprehensive SOAP note from the given patient-clinician transcription.
 
@@ -1005,9 +1361,8 @@ Return a JSON object with these REQUIRED fields: subjective, objective, assessme
 Each field must contain detailed, multi-sentence content. The 'instructions' field is MANDATORY — always include specific patient instructions for medications, activity, follow-up, and warning signs.
 ${DETAIL_INSTRUCTION}`,
   };
-
-  return prompts[template.toLowerCase()] || prompts.default;
 }
+
 
 function generateMockTranscription(): string {
   return `Patient presents today for follow-up regarding their hypertension. 

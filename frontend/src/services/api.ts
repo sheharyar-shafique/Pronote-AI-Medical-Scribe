@@ -372,17 +372,38 @@ export const audioApi = {
     });
   },
 
+  /** Fast path: send audio directly to Whisper, skipping Supabase storage round-trip. */
+  transcribeDirect: async (audioFile: File): Promise<TranscriptionResult> => {
+    const formData = new FormData();
+    formData.append('audio', audioFile);
+
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/audio/transcribe-direct`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Transcription failed' }));
+      throw new ApiError(error.error, response.status);
+    }
+
+    return response.json();
+  },
+
   generateNote: async (
     transcription: string,
     template: string,
     patientName?: string,
     sectionSettings?: Array<{ title: string; verbosity: string; styling: string; content: string; stylingInstructions: string }>,
     patientContext?: string,
-    treatmentPlan?: string
+    treatmentPlan?: string,
+    templateSections?: string[]
   ) => {
     return apiFetch<{ content: NoteContent; template: string; source: 'ai' | 'mock' }>('/audio/generate-note', {
       method: 'POST',
-      body: JSON.stringify({ transcription, template, patientName, sectionSettings, patientContext, treatmentPlan }),
+      body: JSON.stringify({ transcription, template, patientName, sectionSettings, patientContext, treatmentPlan, templateSections }),
     });
   },
 

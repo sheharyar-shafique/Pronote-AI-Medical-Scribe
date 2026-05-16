@@ -222,10 +222,15 @@ export default function DictationPage() {
     
     try {
       // Generate clinical note using real AI
+      const resolvedTpl = templates.find(t => t.id === selectedTemplate);
       const noteResult = await audioApi.generateNote(
         transcript,
         selectedTemplate,
-        patientName || undefined
+        patientName || undefined,
+        undefined,   // sectionSettings (custom templates only)
+        undefined,   // patientContext
+        undefined,   // treatmentPlan
+        resolvedTpl?.sections
       );
 
       // Sanitize GPT content — coerce null/undefined to empty string so the section

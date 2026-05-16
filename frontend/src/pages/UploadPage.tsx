@@ -78,20 +78,21 @@ export default function UploadPage() {
     setProgress(0);
     
     try {
-      // Step 1: Upload the audio file
-      setProgress(20);
-      const uploadResult = await audioApi.upload(file);
-
-      // Step 2: Transcribe with OpenAI Whisper
-      setProgress(50);
-      const transcriptionResult = await audioApi.transcribe(uploadResult.id);
+      // Step 1+2: Send audio directly to Whisper (fast path, skip Supabase storage)
+      setProgress(40);
+      const transcriptionResult = await audioApi.transcribeDirect(file);
 
       // Step 3: Generate clinical note with GPT-4
       setProgress(80);
+      const resolvedTpl = templates.find(t => t.id === selectedTemplate);
       const noteResult = await audioApi.generateNote(
         transcriptionResult.transcription,
         selectedTemplate,
-        patientName || undefined
+        patientName || undefined,
+        undefined,   // sectionSettings
+        undefined,   // patientContext
+        undefined,   // treatmentPlan
+        resolvedTpl?.sections
       );
 
       setProgress(100);

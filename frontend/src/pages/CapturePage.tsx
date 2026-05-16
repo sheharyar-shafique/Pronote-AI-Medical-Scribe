@@ -249,8 +249,8 @@ export default function CapturePage() {
             `recording-${Date.now()}-${i + 1}of${segments.length}.${ext}`,
             { type: blobType }
           );
-          const uploadResult = await audioApi.upload(segFile);
-          const transcriptionResult = await audioApi.transcribe(uploadResult.id);
+          // Fast path: send audio directly to Whisper, skip Supabase round-trip
+          const transcriptionResult = await audioApi.transcribeDirect(segFile);
           return transcriptionResult.transcription?.trim() ?? '';
         };
 
@@ -284,7 +284,8 @@ export default function CapturePage() {
           patientName || undefined,
           resolvedTemplate?.sectionSettings,
           savedContext.trim() || undefined,
-          savedTreatmentPlan.trim() || undefined
+          savedTreatmentPlan.trim() || undefined,
+          resolvedTemplate?.sections
         );
 
         // Warn if server returned mock/placeholder content instead of real AI

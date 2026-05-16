@@ -96,8 +96,8 @@ export default function DemoSessionPage() {
             `demo-${Date.now()}-${i + 1}of${segments.length}.${ext}`,
             { type: blobType }
           );
-          const uploaded = await audioApi.upload(file);
-          const t = await audioApi.transcribe(uploaded.id);
+          // Fast path: skip Supabase round-trip
+          const t = await audioApi.transcribeDirect(file);
           return t.transcription?.trim() ?? '';
         };
 
@@ -113,6 +113,10 @@ export default function DemoSessionPage() {
           transcribed.transcription,
           DEMO_TEMPLATE,
           DEMO_PATIENT,
+          undefined,   // sectionSettings
+          undefined,   // patientContext
+          undefined,   // treatmentPlan
+          ['Subjective', 'Objective', 'Assessment', 'Plan', 'Patient Instructions']
         );
 
         // Sanitize GPT content — coerce null/undefined to empty string so the section
