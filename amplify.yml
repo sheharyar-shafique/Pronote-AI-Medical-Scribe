@@ -5,15 +5,28 @@ applications:
       phases:
         preBuild:
           commands:
+            # Use npm ci for reproducible installs (uses package-lock.json exactly).
             - npm ci
         build:
           commands:
+            # Inject env vars from Amplify console into a .env.production file
+            # so Vite picks them up at build time. Amplify exposes user-defined
+            # env vars to the build shell as normal environment variables; Vite
+            # only reads VITE_* prefixed vars and needs them in .env or process.env
+            # AT BUILD TIME (not runtime — Vite is static).
+            - echo "VITE_API_URL=$VITE_API_URL" > .env.production
+            - echo "VITE_USE_API=$VITE_USE_API" >> .env.production
+            - echo "VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID" >> .env.production
+            - echo "VITE_STRIPE_PUBLISHABLE_KEY=$VITE_STRIPE_PUBLISHABLE_KEY" >> .env.production
+            - echo "VITE_PAYPAL_CLIENT_ID=$VITE_PAYPAL_CLIENT_ID" >> .env.production
+            - cat .env.production
             - npm run build
       artifacts:
-        # Vite outputs to ./dist (relative to appRoot, so frontend/dist)
+        # Vite outputs to ./dist (relative to appRoot → frontend/dist).
         baseDirectory: dist
         files:
           - '**/*'
       cache:
         paths:
+          # Cache node_modules between builds for faster deploys.
           - node_modules/**/*
