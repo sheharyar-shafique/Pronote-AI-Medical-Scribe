@@ -1,0 +1,11 @@
+# Force LF line endings for files that run on Linux servers.
+# Without this, Windows git would convert these to CRLF on checkout, which
+# breaks shell scripts (bad interpreter) and EB config parsers on Amazon Linux.
+*.sh                                   text eol=lf
+backend/.ebextensions/**                text eol=lf
+backend/.platform/**                    text eol=lf
+backend/Procfile                        text eol=lf
+backend/.ebignore                       text eol=lf
+backend/.npmrc                          text eol=lf
+amplify.yml                             text eol=lf
+frontend/public/_redirects              text eol=lf

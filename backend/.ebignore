@@ -1,0 +1,12 @@
+# Files NOT to upload to Elastic Beanstalk
+node_modules/
+dist/
+*.log
+.env
+.env.*
+.DS_Store
+.git/
+.gitignore
+README.md
+src/db/*.sql
+src/db/seed.ts

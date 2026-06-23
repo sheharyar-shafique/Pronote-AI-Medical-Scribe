@@ -1,0 +1,4 @@
+# SPA fallback: any path that isn't an actual file should serve index.html
+# so React Router can render the correct page. Without this, hitting
+# /notes/123 directly (refresh or shared link) returns 404 on Amplify/Netlify.
+/*    /index.html   200
