@@ -101,6 +101,18 @@ export class DeepgramRecorder {
   // when we actually want to reconnect.
   private intentionalClose = false;
 
+  // ── Auto-reconnect state ────────────────────────────────────────────────────
+  // When Deepgram drops the WebSocket mid-recording (session limit, network
+  // blip, server rotation), we automatically mint a new token and reconnect.
+  // The MediaRecorder keeps running throughout — audio chunks during the brief
+  // reconnect window (~1-3s) are lost, but the accumulated transcript is
+  // preserved and the session continues seamlessly.
+  private static readonly MAX_RECONNECT_ATTEMPTS = 5;
+  private static readonly RECONNECT_BASE_DELAY_MS = 1000; // exponential backoff base
+  private reconnectAttempts = 0;
+  private isReconnecting = false;
+  private cachedStreamingParams: Record<string, string> | null = null;
+
   constructor(events: DeepgramRecorderEvents) {
     this.events = events;
   }
@@ -160,101 +172,11 @@ export class DeepgramRecorder {
             MediaRecorder.isTypeSupported(t)
         ) || '';
 
-      // 4. Open WebSocket. Auth goes in the subprotocol field because
-      //    browser WebSocket can't set HTTP headers. Deepgram interprets
-      //    ['token', '<key>'] as the auth.
-      const params = new URLSearchParams(tokenData.streamingParams);
-      // Tell Deepgram the wire format so it doesn't have to sniff. If we
-      //  picked an mp4-based container (Safari), Deepgram needs to know.
-      if (mimeType.includes('mp4')) {
-        // Safari path: Deepgram does autodetect MP4 fine, no encoding hint needed
-      } else if (mimeType.includes('webm')) {
-        // WebM path: Deepgram autodetects too. No need to set encoding/sample_rate
-        // — those are for raw PCM streams.
-      }
-      const wsUrl = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
+      // 4. Cache the streaming params for reconnection and open the WebSocket.
+      this.cachedStreamingParams = tokenData.streamingParams;
+      await this.connectWebSocket(tokenData.token, tokenData.streamingParams);
 
-      this.ws = new WebSocket(wsUrl, ['token', tokenData.token]);
-      this.ws.binaryType = 'arraybuffer';
-
-      // Wait for the WS to open before kicking off MediaRecorder, otherwise
-      // the first few audio frames are dropped.
-      await new Promise<void>((resolve, reject) => {
-        if (!this.ws) return reject(new Error('No WebSocket'));
-        const openTimer = setTimeout(
-          () => reject(new Error('WebSocket open timeout after 10s')),
-          10_000
-        );
-        this.ws.addEventListener(
-          'open',
-          () => {
-            clearTimeout(openTimer);
-            resolve();
-          },
-          { once: true }
-        );
-        this.ws.addEventListener(
-          'error',
-          () => {
-            clearTimeout(openTimer);
-            reject(new Error('WebSocket failed to open'));
-          },
-          { once: true }
-        );
-      });
-
-      // 5. Wire incoming Deepgram messages → transcript callbacks.
-      this.ws.addEventListener('message', (event) => {
-        try {
-          const msg = JSON.parse(event.data as string);
-          // Deepgram message types we care about:
-          //   - "Results"      → transcript (may be is_final or interim)
-          //   - "Metadata"     → session metadata (ignore)
-          //   - "SpeechStarted"→ VAD event (could show "speaking..." indicator)
-          //   - "UtteranceEnd" → end-of-utterance after silence
-          if (msg.type === 'Results' || (msg.channel && msg.channel.alternatives)) {
-            const alt = msg.channel?.alternatives?.[0];
-            const text: string = alt?.transcript ?? '';
-            if (text) {
-              if (msg.is_final) {
-                // Append to the committed transcript. Add a space so successive
-                // finals don't slam together. Strip any leading space first.
-                const joiner = this.finalText && !this.finalText.endsWith(' ') ? ' ' : '';
-                this.finalText += joiner + text.trim();
-                this.interimText = '';
-              } else {
-                this.interimText = text.trim();
-              }
-              this.emitTranscript();
-            }
-          }
-        } catch {
-          // Non-JSON message — ignore.
-        }
-      });
-
-      this.ws.addEventListener('close', (event) => {
-        this.stopKeepalive();
-        if (this.intentionalClose) return;
-        // Unintentional close mid-recording. Surface as error so the UI
-        // can decide whether to retry or bail.
-        this.events.onError(
-          new Error(
-            `Deepgram connection closed unexpectedly (code=${event.code}, reason=${event.reason || 'none'})`
-          )
-        );
-        this.setStatus('error', `Deepgram disconnected (${event.code})`);
-      });
-
-      this.ws.addEventListener('error', () => {
-        // The 'error' event fires before close and doesn't carry info — let
-        // the close handler do the real work, but surface a status hint.
-        if (this.status !== 'stopping' && this.status !== 'stopped') {
-          this.setStatus('error', 'WebSocket error');
-        }
-      });
-
-      // 6. Start MediaRecorder. timeslice=250ms means ondataavailable fires
+      // 5. Start MediaRecorder. timeslice=250ms means ondataavailable fires
       //    every 250ms with a small chunk of audio — low enough latency for
       //    Deepgram to emit interim results within ~500ms of speech.
       this.mediaRecorder = new MediaRecorder(
@@ -268,20 +190,169 @@ export class DeepgramRecorder {
       };
       this.mediaRecorder.start(250);
 
-      // 7. Start keepalive — Deepgram closes idle connections after ~10s
-      //    without audio. If the patient is briefly silent, the WS would
-      //    drop. KeepAlive message keeps it open.
-      this.keepaliveTimer = setInterval(() => {
-        if (this.ws?.readyState === WebSocket.OPEN) {
-          this.ws.send(JSON.stringify({ type: 'KeepAlive' }));
-        }
-      }, 5_000);
-
       this.setStatus('recording');
     } catch (err) {
       this.cleanup();
       this.setStatus('error', err instanceof Error ? err.message : String(err));
       throw err;
+    }
+  }
+
+  // ── WebSocket setup (reusable for initial connect + reconnects) ────────────
+  private async connectWebSocket(
+    token: string,
+    streamingParams: Record<string, string>
+  ): Promise<void> {
+    // Close any existing WS cleanly before opening a new one.
+    if (this.ws) {
+      try { this.ws.close(); } catch {}
+      this.ws = null;
+    }
+    this.stopKeepalive();
+
+    const params = new URLSearchParams(streamingParams);
+    const wsUrl = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
+
+    this.ws = new WebSocket(wsUrl, ['token', token]);
+    this.ws.binaryType = 'arraybuffer';
+
+    // Wait for the WS to open.
+    await new Promise<void>((resolve, reject) => {
+      if (!this.ws) return reject(new Error('No WebSocket'));
+      const openTimer = setTimeout(
+        () => reject(new Error('WebSocket open timeout after 10s')),
+        10_000
+      );
+      this.ws.addEventListener(
+        'open',
+        () => {
+          clearTimeout(openTimer);
+          resolve();
+        },
+        { once: true }
+      );
+      this.ws.addEventListener(
+        'error',
+        () => {
+          clearTimeout(openTimer);
+          reject(new Error('WebSocket failed to open'));
+        },
+        { once: true }
+      );
+    });
+
+    // Wire incoming Deepgram messages → transcript callbacks.
+    this.ws.addEventListener('message', (event) => {
+      try {
+        const msg = JSON.parse(event.data as string);
+        if (msg.type === 'Results' || (msg.channel && msg.channel.alternatives)) {
+          // Successful transcript — reset reconnect counter since connection is healthy.
+          this.reconnectAttempts = 0;
+          const alt = msg.channel?.alternatives?.[0];
+          const text: string = alt?.transcript ?? '';
+          if (text) {
+            if (msg.is_final) {
+              const joiner = this.finalText && !this.finalText.endsWith(' ') ? ' ' : '';
+              this.finalText += joiner + text.trim();
+              this.interimText = '';
+            } else {
+              this.interimText = text.trim();
+            }
+            this.emitTranscript();
+          }
+        }
+      } catch {
+        // Non-JSON message — ignore.
+      }
+    });
+
+    this.ws.addEventListener('close', (event) => {
+      this.stopKeepalive();
+      if (this.intentionalClose) return;
+
+      // Unintentional close mid-recording — attempt automatic reconnection.
+      // The MediaRecorder stays running so the mic never cuts out; audio
+      // chunks during the brief reconnect gap (~1-3s) are silently dropped
+      // (the ondataavailable guard checks ws.readyState), but the transcript
+      // accumulated so far is preserved.
+      console.warn(
+        `[deepgram] WebSocket closed unexpectedly (code=${event.code}, reason=${event.reason || 'none'}). Attempting reconnect...`
+      );
+      this.attemptReconnect();
+    });
+
+    this.ws.addEventListener('error', () => {
+      if (this.status !== 'stopping' && this.status !== 'stopped' && !this.isReconnecting) {
+        // Don't overwrite status during reconnect — the UI already shows "Reconnecting..."
+        console.warn('[deepgram] WebSocket error event');
+      }
+    });
+
+    // Start keepalive — Deepgram closes idle connections after ~10s.
+    this.keepaliveTimer = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ type: 'KeepAlive' }));
+      }
+    }, 5_000);
+  }
+
+  // ── Auto-reconnect logic ──────────────────────────────────────────────────
+  private async attemptReconnect(): Promise<void> {
+    if (this.intentionalClose || this.isReconnecting) return;
+    if (this.status === 'stopping' || this.status === 'stopped' || this.status === 'idle') return;
+
+    if (this.reconnectAttempts >= DeepgramRecorder.MAX_RECONNECT_ATTEMPTS) {
+      this.events.onError(
+        new Error(
+          `Deepgram disconnected and reconnection failed after ${DeepgramRecorder.MAX_RECONNECT_ATTEMPTS} attempts. ` +
+          `Transcript captured so far has been preserved.`
+        )
+      );
+      this.setStatus('error', 'Connection lost — could not reconnect');
+      return;
+    }
+
+    this.isReconnecting = true;
+    this.reconnectAttempts++;
+
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+    const delay = DeepgramRecorder.RECONNECT_BASE_DELAY_MS * Math.pow(2, this.reconnectAttempts - 1);
+    this.setStatus(
+      'recording', // keep 'recording' so the timer doesn't stop in the UI
+      `Reconnecting to transcription (attempt ${this.reconnectAttempts}/${DeepgramRecorder.MAX_RECONNECT_ATTEMPTS})...`
+    );
+    // Also surface as a status detail for the live transcript panel
+    this.events.onStatusChange(
+      'connecting',
+      `Reconnecting (${this.reconnectAttempts}/${DeepgramRecorder.MAX_RECONNECT_ATTEMPTS})...`
+    );
+
+    await new Promise((r) => setTimeout(r, delay));
+
+    // Bail if user stopped recording during the backoff wait.
+    if (this.intentionalClose || this.status === 'stopping' || this.status === 'stopped') {
+      this.isReconnecting = false;
+      return;
+    }
+
+    try {
+      // Mint a fresh token — the old one may have expired.
+      const tokenData = await fetchDeepgramToken();
+      this.cachedStreamingParams = tokenData.streamingParams;
+
+      await this.connectWebSocket(tokenData.token, tokenData.streamingParams);
+
+      this.isReconnecting = false;
+      this.setStatus('recording');
+      console.log(
+        `[deepgram] Reconnected successfully on attempt ${this.reconnectAttempts}. ` +
+        `Transcript preserved (${this.finalText.split(/\s+/).length} words).`
+      );
+    } catch (err) {
+      console.error('[deepgram] Reconnect attempt failed:', err);
+      this.isReconnecting = false;
+      // Try again (recursive — respects MAX_RECONNECT_ATTEMPTS)
+      this.attemptReconnect();
     }
   }
 
@@ -350,6 +421,7 @@ export class DeepgramRecorder {
   /** Hard-stop without waiting — used on unmount or hard errors. */
   abort() {
     this.intentionalClose = true;
+    this.isReconnecting = false;
     this.cleanup();
     this.setStatus('idle');
   }
