@@ -713,7 +713,7 @@ export default function CapturePage() {
                           <button
                             onClick={() => {
                               setShowCaptureDropdown(false);
-                              toast('Text to Note coming soon!', { icon: '📝' });
+                              navigate('/text-to-note');
                             }}
                             className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-indigo-500/10 transition-colors text-left"
                           >

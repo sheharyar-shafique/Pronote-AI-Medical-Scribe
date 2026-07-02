@@ -5,6 +5,7 @@ export { default as ForgotPasswordPage } from './ForgotPasswordPage';
 export { default as DashboardPage } from './DashboardPage';
 export { default as CapturePage } from './CapturePage';
 export { default as DictationPage } from './DictationPage';
+export { default as TextToNotePage } from './TextToNotePage';
 export { default as UploadPage } from './UploadPage';
 export { default as NotesPage } from './NotesPage';
 export { default as NoteEditorPage } from './NoteEditorPage';

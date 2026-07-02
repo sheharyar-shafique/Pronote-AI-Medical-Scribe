@@ -11,6 +11,7 @@ import {
   DashboardPage,
   CapturePage,
   DictationPage,
+  TextToNotePage,
   UploadPage,
   NotesPage,
   NoteEditorPage,
@@ -224,6 +225,14 @@ function App() {
           element={
             <ProtectedRoute>
               <DictationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/text-to-note"
+          element={
+            <ProtectedRoute>
+              <TextToNotePage />
             </ProtectedRoute>
           }
         />
