@@ -124,7 +124,7 @@ export default function CapturePage() {
       );
     }
     if (notesTab === 'unread') {
-      result = result.filter((n) => n.status === 'draft');
+      result = result.filter((n) => !n.isRead);
     }
     return result;
   }, [notes, notesSearch, notesTab]);
@@ -469,27 +469,41 @@ export default function CapturePage() {
                   <button
                     key={note.id}
                     onClick={() => navigate(`/notes/${note.id}`)}
-                    className="w-full text-left px-4 py-3 border-b border-slate-800/60 hover:bg-indigo-500/[0.06] transition-colors group"
+                    className={`w-full text-left px-4 py-3 border-b border-slate-800/60 hover:bg-indigo-500/[0.06] transition-colors group ${
+                      !note.isRead ? 'bg-indigo-500/[0.03]' : ''
+                    }`}
                   >
-                    <p className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors truncate">
-                      {note.patientName || 'Unknown Patient'}
-                    </p>
-                    <p className="text-xs text-slate-400 mt-0.5 truncate leading-relaxed">
-                      {getNoteTitle(note)}
-                    </p>
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      {new Date(note.createdAt).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                      {', '}
-                      {new Date(note.createdAt).toLocaleTimeString('en-US', {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        hour12: true,
-                      })}
-                    </p>
+                    <div className="flex items-start gap-2">
+                      {/* Unread dot */}
+                      {!note.isRead && (
+                        <div className="w-2 h-2 rounded-full bg-indigo-400 mt-1.5 flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm truncate group-hover:text-indigo-300 transition-colors ${
+                          !note.isRead ? 'font-black text-white' : 'font-bold text-slate-300'
+                        }`}>
+                          {note.patientName || 'Unknown Patient'}
+                        </p>
+                        <p className={`text-xs mt-0.5 truncate leading-relaxed ${
+                          !note.isRead ? 'text-slate-300' : 'text-slate-400'
+                        }`}>
+                          {getNoteTitle(note)}
+                        </p>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          {new Date(note.createdAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                          {', '}
+                          {new Date(note.createdAt).toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true,
+                          })}
+                        </p>
+                      </div>
+                    </div>
                   </button>
                 ))}
               </div>

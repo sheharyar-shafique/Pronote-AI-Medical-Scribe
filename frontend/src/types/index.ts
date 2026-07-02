@@ -22,6 +22,7 @@ export interface ClinicalNote {
   template: NoteTemplate;
   content: NoteContent;
   status: 'draft' | 'completed' | 'signed';
+  isRead?: boolean;
   audioUrl?: string;
   transcription?: string;
   // Length of the source recording (seconds). Stored in processing_time_seconds on the

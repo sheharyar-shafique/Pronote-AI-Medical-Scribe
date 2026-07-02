@@ -249,6 +249,12 @@ export const notesApi = {
       method: 'POST',
     });
   },
+
+  markAsRead: async (id: string) => {
+    return apiFetch<{ id: string; isRead: boolean }>(`/notes/${id}/read`, {
+      method: 'PATCH',
+    });
+  },
 };
 
 // Templates API

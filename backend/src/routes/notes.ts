@@ -51,6 +51,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response, next) => {
       dateOfService: note.date_of_service,
       template: note.template,
       status: note.status,
+      isRead: note.is_read ?? false,
       audioUrl: note.audio_url,
       transcription: note.transcription,
       durationSeconds: note.processing_time_seconds,
@@ -137,6 +138,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response, next) => {
       dateOfService: note.date_of_service,
       template: note.template,
       status: note.status,
+      isRead: note.is_read ?? false,
       audioUrl: note.audio_url,
       transcription: note.transcription,
       durationSeconds: note.processing_time_seconds,
@@ -185,6 +187,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next) => {
         status: data.status || 'draft',
         transcription: data.transcription,
         processing_time_seconds: processingTimeSeconds,
+        is_read: false,
       })
       .select()
       .single();
@@ -248,6 +251,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next) => {
       dateOfService: note.date_of_service,
       template: note.template,
       status: note.status,
+      isRead: note.is_read ?? false,
       durationSeconds: note.processing_time_seconds,
       content: data.content || {},
       createdAt: note.created_at,
@@ -333,6 +337,7 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response, next) => {
       dateOfService: updatedNote.date_of_service,
       template: updatedNote.template,
       status: updatedNote.status,
+      isRead: updatedNote.is_read ?? false,
       audioUrl: updatedNote.audio_url,
       transcription: updatedNote.transcription,
       durationSeconds: updatedNote.processing_time_seconds,
@@ -353,6 +358,29 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response, next) => {
       createdAt: updatedNote.created_at,
       updatedAt: updatedNote.updated_at,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/notes/:id/read - Mark a note as read
+router.patch('/:id/read', async (req: AuthenticatedRequest, res: Response, next) => {
+  try {
+    const { id } = req.params;
+
+    const { data: note, error } = await supabase
+      .from('clinical_notes')
+      .update({ is_read: true })
+      .eq('id', id)
+      .eq('user_id', req.user!.id)
+      .select('id, is_read')
+      .single();
+
+    if (error || !note) {
+      throw new AppError('Note not found', 404);
+    }
+
+    res.json({ id: note.id, isRead: true });
   } catch (error) {
     next(error);
   }

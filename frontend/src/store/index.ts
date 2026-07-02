@@ -46,6 +46,7 @@ function mapApiNote(apiNote: any): ClinicalNote {
     template: apiNote.template,
     content: apiNote.content || {},
     status: apiNote.status,
+    isRead: apiNote.isRead ?? false,
     audioUrl: apiNote.audioUrl,
     transcription: apiNote.transcription,
     createdAt: new Date(apiNote.createdAt),
@@ -79,6 +80,7 @@ interface NotesState {
   addNote: (note: ClinicalNote) => Promise<void>;
   updateNote: (id: string, updates: Partial<ClinicalNote>) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
+  markNoteAsRead: (id: string) => Promise<void>;
   setCurrentNote: (note: ClinicalNote | null) => void;
   getNoteById: (id: string) => ClinicalNote | undefined;
   clearError: () => void;
@@ -433,6 +435,24 @@ export const useNotesStore = create<NotesState>()(
           notes: state.notes.filter((note) => note.id !== id),
           currentNote: state.currentNote?.id === id ? null : state.currentNote,
         }));
+      },
+
+      markNoteAsRead: async (id) => {
+        // Optimistically update locally
+        set((state) => ({
+          notes: state.notes.map((note) =>
+            note.id === id ? { ...note, isRead: true } : note
+          ),
+          currentNote: state.currentNote?.id === id
+            ? { ...state.currentNote, isRead: true }
+            : state.currentNote,
+        }));
+        // Persist to backend
+        try {
+          await notesApi.markAsRead(id);
+        } catch (error) {
+          console.error('Failed to mark note as read:', error);
+        }
       },
       
       setCurrentNote: (note) => {

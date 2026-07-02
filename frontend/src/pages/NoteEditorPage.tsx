@@ -94,7 +94,7 @@ function resolveTemplateName(templateId: string | undefined): string {
 export default function NoteEditorPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getNoteById, fetchNoteById, updateNote, deleteNote } = useNotesStore();
+  const { getNoteById, fetchNoteById, updateNote, deleteNote, markNoteAsRead } = useNotesStore();
   
   const [note, setNote] = useState<ClinicalNote | null>(null);
   const [content, setContent] = useState<NoteContent>({});
@@ -129,6 +129,8 @@ export default function NoteEditorPage() {
       setNote(existingNote);
       setContent(existingNote.content);
       setIsLoadingNote(false);
+      // Mark as read when opened
+      if (!existingNote.isRead) markNoteAsRead(id);
       return;
     }
 
@@ -138,6 +140,8 @@ export default function NoteEditorPage() {
       if (fetched) {
         setNote(fetched);
         setContent(fetched.content);
+        // Mark as read when opened
+        if (!fetched.isRead) markNoteAsRead(id);
       } else {
         setNoteNotFound(true);
       }
