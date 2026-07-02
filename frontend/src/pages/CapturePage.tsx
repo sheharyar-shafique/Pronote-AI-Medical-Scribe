@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -14,9 +14,9 @@ import {
   X,
   ChevronDown,
   User,
+  Search,
 } from 'lucide-react';
 import { Sidebar } from '../components/layout';
-import { Card, Select } from '../components/ui';
 import { useRecordingStore, useNotesStore, useSettingsStore } from '../store';
 import { templates as allBuiltInTemplates } from '../data';
 import { buildDefaultSectionSettings } from '../data/sectionDefaults';
@@ -26,14 +26,45 @@ import toast from 'react-hot-toast';
 import type { ClinicalNote, Template } from '../types';
 
 const MIN_RECORDING_SECONDS = 20;
-// Hard cap on a single recording session. Mental-health and similar long-form
-// visits run 1-2 hours; anything beyond that risks browser memory pressure on
-// older mobile devices and is almost always an unintentional "left it running"
-// rather than a real visit. We auto-stop at exactly this point and process
-// whatever was captured up to then.
-const MAX_RECORDING_SECONDS = 2 * 60 * 60; // 7200 = 2 hours
-// Warn the user this many seconds before the hard cap fires.
-const MAX_WARNING_LEAD_SECONDS = 5 * 60;   // 5-minute warning before auto-stop
+const MAX_RECORDING_SECONDS = 2 * 60 * 60;
+const MAX_WARNING_LEAD_SECONDS = 5 * 60;
+
+// ── Helper: group notes by date ──────────────────────────────────────────────
+function groupNotesByDate(notes: ClinicalNote[]) {
+  const groups: { label: string; notes: ClinicalNote[] }[] = [];
+  const map = new Map<string, ClinicalNote[]>();
+
+  for (const note of notes) {
+    const d = new Date(note.createdAt);
+    const label = d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+    if (!map.has(label)) {
+      map.set(label, []);
+    }
+    map.get(label)!.push(note);
+  }
+
+  for (const [label, items] of map) {
+    groups.push({ label, notes: items });
+  }
+  return groups;
+}
+
+// Helper: extract a short title from note content
+function getNoteTitle(note: ClinicalNote): string {
+  const topic =
+    note.content?.topic ||
+    note.content?.customSections?.topic ||
+    '';
+  if (topic) return topic;
+
+  // Fallback: use template name
+  const tpl = allBuiltInTemplates.find((t) => t.id === note.template);
+  return tpl?.name || note.template || 'Clinical Note';
+}
 
 export default function CapturePage() {
   const navigate = useNavigate();
@@ -50,12 +81,15 @@ export default function CapturePage() {
   const { selectedTemplate, setTemplate } = useSettingsStore();
 
   const [isProcessing, setIsProcessing] = useState(false);
-  // What step the post-stop pipeline is on, for the spinner label.
-  // 'note' = waiting on GPT generation; that's the only post-stop step now.
   const [processingStage, setProcessingStage] = useState<'idle' | 'note'>('idle');
   const [patientName, setPatientName] = useState('');
   const [patientPronoun, setPatientPronoun] = useState('');
   const [shakingStop, setShakingStop] = useState(false);
+  const [sessionType, setSessionType] = useState<'in-person' | 'virtual'>('in-person');
+
+  // Notes list panel state
+  const [notesTab, setNotesTab] = useState<'all' | 'unread'>('all');
+  const [notesSearch, setNotesSearch] = useState('');
 
   // New Patient modal state
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
@@ -68,38 +102,34 @@ export default function CapturePage() {
   const patientFieldRef = useRef<HTMLDivElement>(null);
   const pronounDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Patient search / autocomplete state
-  const [patientSearchQuery, setPatientSearchQuery] = useState('');
-
-  // Fetch existing notes on mount to extract known patient names
+  // Fetch existing notes on mount
   useEffect(() => { fetchNotes(); }, [fetchNotes]);
 
-  // Unique patient names from the user's existing notes (most-recent first)
-  const existingPatientNames = (() => {
-    const seen = new Set<string>();
-    const result: string[] = [];
-    // notes are typically sorted by createdAt desc from the API
-    for (const n of notes) {
-      const name = n.patientName?.trim();
-      if (name && !seen.has(name.toLowerCase())) {
-        seen.add(name.toLowerCase());
-        result.push(name);
-      }
+  // Notes filtered for the left panel
+  const filteredNotes = useMemo(() => {
+    let result = [...notes];
+    if (notesSearch.trim()) {
+      const q = notesSearch.toLowerCase();
+      result = result.filter(
+        (n) =>
+          n.patientName?.toLowerCase().includes(q) ||
+          getNoteTitle(n).toLowerCase().includes(q)
+      );
+    }
+    if (notesTab === 'unread') {
+      result = result.filter((n) => n.status === 'draft');
     }
     return result;
-  })();
+  }, [notes, notesSearch, notesTab]);
 
-  // Filter by search query
-  const filteredPatientNames = patientSearchQuery
-    ? existingPatientNames.filter(n => n.toLowerCase().includes(patientSearchQuery.toLowerCase()))
-    : existingPatientNames;
+  const groupedNotes = useMemo(() => groupNotesByDate(filteredNotes), [filteredNotes]);
 
   const isRecordingActive = session.status === 'recording' || session.status === 'paused';
   const meetsMinDuration = session.duration >= MIN_RECORDING_SECONDS;
   const remainingSeconds = Math.max(0, MIN_RECORDING_SECONDS - session.duration);
   const minProgress = Math.min(100, (session.duration / MIN_RECORDING_SECONDS) * 100);
 
-  // ── My Templates: start from localStorage, then sync from server ─────────────
+  // ── My Templates ─────────────────────────────────────────────────────────────
   const [myTemplates, setMyTemplates] = useState<Template[]>(() => {
     try {
       const raw = localStorage.getItem('pronote_added_ids');
@@ -124,7 +154,6 @@ export default function CapturePage() {
           localStorage.setItem('pronote_custom_templates', JSON.stringify(serverCustom));
         } catch {}
       } else {
-        // New user: default to all built-in templates (localStorage cleared on login)
         setMyTemplates([...allBuiltInTemplates]);
         const defaultIds = allBuiltInTemplates.map(t => t.id);
         templatesApi.savePreferences(defaultIds, []).catch(() => {});
@@ -132,41 +161,26 @@ export default function CapturePage() {
     }).catch(() => {});
   }, []);
 
-  // Fall back to first My Template if the selected one isn't in My Templates
   const resolvedTemplate =
     myTemplates.find(t => t.id === selectedTemplate) ?? myTemplates[0];
 
-  // Track whether the user has already seen the "5 minutes left" warning so we
-  // don't spam it every second once they cross the threshold.
+  // ── Timer logic ──────────────────────────────────────────────────────────────
   const warnedNearMaxRef = useRef(false);
-
-  // Always call the LATEST stop handler from the timer tick. The interval is
-  // created once per recording session, so without this ref the 2-hour auto-stop
-  // would capture a stale closure (e.g. an outdated minimum-duration check).
   const stopHandlerRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (session.status === 'recording') {
-      // Wall-clock timer. We compute elapsed = now - startedAt - pausedTime on
-      // every tick instead of counting ticks (+1 per fire). Tick counting
-      // drifts: each interval fire is late by render/processing time, and
-      // Chrome heavily throttles timers in background tabs — users comparing
-      // against a stopwatch saw the timer run ~25% slow. With wall-clock math
-      // the display is always exact no matter how late or throttled the ticks
-      // are. The 500ms cadence just keeps the display smooth.
       const tick = () => {
         const { recordingStartedAt, pausedAt, pausedTotalMs } =
-          useRecordingStore.getState();
+          useRecordingStore.getState() as any;
         if (!recordingStartedAt) return;
         const pausedMs =
-          pausedTotalMs + (pausedAt != null ? Date.now() - pausedAt : 0);
+          (pausedTotalMs || 0) + (pausedAt != null ? Date.now() - pausedAt : 0);
         const next = Math.max(
           0,
           Math.floor((Date.now() - recordingStartedAt - pausedMs) / 1000)
         );
 
-        // Soft warning: 5 minutes before the hard cap fires. (>= not ===, since
-        // wall-clock seconds can skip values after a throttled/blocked stretch.)
         if (
           next >= MAX_RECORDING_SECONDS - MAX_WARNING_LEAD_SECONDS &&
           next < MAX_RECORDING_SECONDS &&
@@ -179,13 +193,11 @@ export default function CapturePage() {
           );
         }
 
-        // Hard cap: auto-stop the recording at 2 hours.
         if (next >= MAX_RECORDING_SECONDS) {
           toast.success('2-hour limit reached — processing the recording now.', {
             icon: '⏰',
             duration: 4000,
           });
-          // Trigger the same path the user would by tapping "Stop".
           stopHandlerRef.current();
           return;
         }
@@ -193,13 +205,12 @@ export default function CapturePage() {
         setDuration(next);
       };
 
-      tick(); // render the correct value immediately, not after the first delay
+      tick();
       intervalRef.current = setInterval(tick, 500);
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
-      // Reset the warning flag so the next session starts fresh.
       if (session.status === 'idle' || session.status === 'completed') {
         warnedNearMaxRef.current = false;
       }
@@ -212,7 +223,7 @@ export default function CapturePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.status, setDuration]);
 
-  // Close patient dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (patientFieldRef.current && !patientFieldRef.current.contains(e.target as Node)) {
@@ -232,8 +243,8 @@ export default function CapturePage() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // ── Handlers ─────────────────────────────────────────────────────────────────
   const handleStartRecording = async () => {
-    // Patient name is mandatory
     if (!patientName.trim()) {
       toast.error('Patient name is required to start recording.', { icon: '\uD83D\uDC64', duration: 3000 });
       return;
@@ -247,7 +258,6 @@ export default function CapturePage() {
   };
 
   const handleStopRecording = async () => {
-    // Enforce minimum 30-second recording
     if (!meetsMinDuration) {
       setShakingStop(true);
       setTimeout(() => setShakingStop(false), 600);
@@ -259,10 +269,6 @@ export default function CapturePage() {
     }
     setIsProcessing(true);
     try {
-      // Deepgram has been transcribing live during the entire recording. On
-      // Stop, the WebSocket flushes any in-flight transcripts and returns the
-      // complete text. No upload-and-wait step — this resolves in <1 second
-      // regardless of recording length.
       const transcription = (await stopRecording()).trim();
 
       if (!transcription) {
@@ -271,9 +277,6 @@ export default function CapturePage() {
         );
       }
 
-      // GPT note generation. Pull any saved Patient Context + Treatment Plan
-      // for this patient (set on /patients/:name) so the AI incorporates known
-      // conditions / goals / planned care not mentioned in the recording.
       let savedContext = '';
       let savedTreatmentPlan = '';
       if (patientName) {
@@ -285,10 +288,6 @@ export default function CapturePage() {
       }
 
       setProcessingStage('note');
-      // Custom templates carry their own sectionSettings; built-in templates don't,
-      // so synthesize defaults from their section list. This is what makes the
-      // bullet/paragraph + concise/detailed preferences reach the AI for EVERY
-      // template, not just custom ones.
       const effectiveSectionSettings =
         resolvedTemplate?.sectionSettings ??
         buildDefaultSectionSettings(resolvedTemplate?.sections);
@@ -302,12 +301,8 @@ export default function CapturePage() {
         resolvedTemplate?.sections
       );
 
-      // Re-wrap so the subsequent code (which expects an object with .transcription)
-      // keeps working without further changes.
       const transcriptionResult = { transcription };
       {
-
-        // Warn if server returned mock/placeholder content instead of real AI
         if (noteResult.source === 'mock') {
           toast('⚠️ Note generated with placeholder data — AI key not configured on server.', {
             duration: 6000,
@@ -315,13 +310,7 @@ export default function CapturePage() {
           });
         }
 
-        // Sanitize GPT content — coerce nulls to '' and arrays/objects to strings
-        // so the notes API's z.string() validation never rejects the save.
         const sanitizedContent = sanitizeNoteContent(noteResult.content);
-        
-        // Step 4: Create the note in the database. Send the recording duration as
-        // processingTime so it lands in clinical_notes.processing_time_seconds — the
-        // patient notes table reads it back as durationSeconds.
         const recordingDuration = session.duration;
         const createdNote = await notesApi.create({
           patientName: patientName || 'Unknown Patient',
@@ -332,7 +321,6 @@ export default function CapturePage() {
           processingTime: recordingDuration,
         });
 
-        // Also add to local store for immediate UI update
         const newNote: ClinicalNote = {
           id: createdNote.id,
           userId: createdNote.userId,
@@ -354,7 +342,6 @@ export default function CapturePage() {
       }
     } catch (error: any) {
       console.error('Recording processing error:', error);
-      // Show specific field errors if available (Zod validation details)
       const msg = error?.details
         ? `Validation failed: ${error.details.map((d: any) => `${d.field}: ${d.message}`).join(', ')}`
         : error.message || 'Failed to process recording';
@@ -366,7 +353,6 @@ export default function CapturePage() {
     }
   };
 
-  // Keep the timer's auto-stop pointing at the freshest handler (see stopHandlerRef).
   stopHandlerRef.current = handleStopRecording;
 
   const handleReset = () => {
@@ -390,388 +376,426 @@ export default function CapturePage() {
     toast.success('Patient added!');
   };
 
+  // Unique patient names from notes (for autocomplete dropdown)
+  const existingPatientNames = useMemo(() => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const n of notes) {
+      const name = n.patientName?.trim();
+      if (name && !seen.has(name.toLowerCase())) {
+        seen.add(name.toLowerCase());
+        result.push(name);
+      }
+    }
+    return result;
+  }, [notes]);
+
+  const [patientSearchQuery, setPatientSearchQuery] = useState('');
+  const filteredPatientNames = patientSearchQuery
+    ? existingPatientNames.filter(n => n.toLowerCase().includes(patientSearchQuery.toLowerCase()))
+    : existingPatientNames;
+
   return (
     <Sidebar>
-      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-black text-white mb-1">Capture Conversation</h1>
-          <p className="text-slate-400">Record your patient visit and we'll auto-generate clinical notes.</p>
-        </motion.div>
-
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Recording Panel */}
-          <div className="lg:col-span-2">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
+      <div className="flex h-[calc(100vh-0px)]" style={{ minHeight: 0 }}>
+        {/* ═══════════ LEFT PANEL: Notes List ═══════════ */}
+        <div
+          className="hidden lg:flex flex-col border-r border-slate-700/60 bg-white/[0.02]"
+          style={{ width: 300, minWidth: 300, maxWidth: 300 }}
+        >
+          {/* All / Unread tabs */}
+          <div className="flex border-b border-slate-700/60">
+            <button
+              onClick={() => setNotesTab('all')}
+              className={`flex-1 py-3 text-sm font-semibold text-center transition-colors ${
+                notesTab === 'all'
+                  ? 'text-indigo-400 border-b-2 border-indigo-400'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
             >
-              <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-8 shadow-2xl">
-                {/* Patient Info */}
-                <div className="mb-6" ref={patientFieldRef}>
-                  <label className="block text-sm font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
-                    <User size={13} className="text-slate-400" />
-                    Patient Name
-                    <span className="text-red-400 text-xs ml-0.5">*</span>
-                  </label>
-                  <div className="relative">
-                    {/* Name display / input */}
-                    <button
-                      type="button"
-                      onClick={() => session.status === 'idle' && setShowPatientDropdown(v => !v)}
-                      disabled={session.status !== 'idle'}
-                      className={`w-full px-4 py-3 rounded-xl border transition-all text-sm text-left flex items-center justify-between ${
-                        !patientName
-                          ? 'border-white/[0.12] bg-white/5 text-slate-500'
-                          : 'border-emerald-500/40 bg-emerald-500/5 text-white'
-                      } disabled:opacity-60`}
-                    >
-                      <span className={patientName ? 'text-white font-medium' : 'text-slate-500'}>
-                        {patientName || 'Click to add patient…'}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {patientPronoun && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">
-                            {patientPronoun}
-                          </span>
-                        )}
-                        {patientName && session.status === 'idle' && (
-                          <span
-                            role="button"
-                            onClick={(e) => { e.stopPropagation(); setPatientName(''); setPatientPronoun(''); }}
-                            className="text-slate-500 hover:text-red-400 transition-colors"
-                          >
-                            <X size={14} />
-                          </span>
-                        )}
-                        {!patientName && <ChevronDown size={14} className="text-slate-500" />}
-                      </div>
-                    </button>
+              All
+            </button>
+            <button
+              onClick={() => setNotesTab('unread')}
+              className={`flex-1 py-3 text-sm font-semibold text-center transition-colors ${
+                notesTab === 'unread'
+                  ? 'text-indigo-400 border-b-2 border-indigo-400'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Unread
+            </button>
+          </div>
 
-                    {/* Dropdown */}
-                    <AnimatePresence>
-                      {showPatientDropdown && session.status === 'idle' && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                          transition={{ duration: 0.12 }}
-                          className="absolute top-full mt-1 left-0 right-0 bg-slate-800/95 backdrop-blur-sm border border-white/[0.12] rounded-xl shadow-2xl z-40 overflow-hidden"
+          {/* Search */}
+          <div className="px-3 py-3">
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type="text"
+                placeholder="Search by title or patient"
+                value={notesSearch}
+                onChange={(e) => setNotesSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-white/[0.04] border border-slate-700/60 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 focus:border-indigo-500/40 transition-all"
+              />
+            </div>
+          </div>
+
+          {/* Notes list */}
+          <div className="flex-1 overflow-y-auto">
+            {groupedNotes.length === 0 && (
+              <div className="px-4 py-8 text-center">
+                <p className="text-sm text-slate-500">No notes found</p>
+              </div>
+            )}
+            {groupedNotes.map((group) => (
+              <div key={group.label}>
+                {/* Date header */}
+                <div className="px-4 py-2 bg-white/[0.02]">
+                  <span className="text-xs font-semibold text-slate-500">{group.label}</span>
+                </div>
+                {/* Note items */}
+                {group.notes.map((note) => (
+                  <button
+                    key={note.id}
+                    onClick={() => navigate(`/notes/${note.id}`)}
+                    className="w-full text-left px-4 py-3 border-b border-slate-800/60 hover:bg-indigo-500/[0.06] transition-colors group"
+                  >
+                    <p className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors truncate">
+                      {note.patientName || 'Unknown Patient'}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5 truncate leading-relaxed">
+                      {getNoteTitle(note)}
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      {new Date(note.createdAt).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                      {', '}
+                      {new Date(note.createdAt).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true,
+                      })}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ═══════════ RIGHT PANEL: Capture Form ═══════════ */}
+        <div className="flex-1 flex items-start justify-center overflow-y-auto">
+          <div className="w-full max-w-lg px-6 py-12">
+            <AnimatePresence mode="wait">
+              {/* ── IDLE STATE: Capture form ──────────────────────────── */}
+              {session.status === 'idle' && !isProcessing && (
+                <motion.div
+                  key="capture-form"
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -16 }}
+                  transition={{ duration: 0.25 }}
+                  className="space-y-5"
+                >
+                  {/* Patient Name */}
+                  <div ref={patientFieldRef}>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Patient Name"
+                        value={patientName}
+                        onChange={(e) => setPatientName(e.target.value)}
+                        onFocus={() => setShowPatientDropdown(true)}
+                        className="w-full px-4 py-3 bg-transparent border-b border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400 transition-colors text-sm"
+                      />
+                      {patientName && (
+                        <button
+                          onClick={() => { setPatientName(''); setPatientPronoun(''); }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-red-400 transition-colors"
                         >
-                          {/* Search / filter input */}
-                          <div className="px-3 pt-3 pb-2">
-                            <input
-                              type="text"
-                              placeholder="Patient Name"
-                              value={patientSearchQuery}
-                              onChange={(e) => setPatientSearchQuery(e.target.value)}
-                              autoFocus
-                              className="w-full px-3 py-2.5 bg-white/[0.06] border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all"
-                            />
-                          </div>
+                          <X size={14} />
+                        </button>
+                      )}
 
-                          {/* Recent patients list */}
-                          {filteredPatientNames.length > 0 && (
-                            <div className="px-3 pb-1">
-                              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1 px-1">Recent Patients</p>
-                              <div className="max-h-40 overflow-y-auto">
-                                {filteredPatientNames.map(name => (
-                                  <button
-                                    key={name}
-                                    onClick={() => {
-                                      setPatientName(name);
-                                      setShowPatientDropdown(false);
-                                      setPatientSearchQuery('');
-                                    }}
-                                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-white hover:bg-blue-500/15 rounded-lg transition-colors text-left"
-                                  >
-                                    <div className="w-7 h-7 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                                      <span className="text-xs font-bold text-blue-400">{name.charAt(0).toUpperCase()}</span>
-                                    </div>
-                                    {name}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {filteredPatientNames.length === 0 && patientSearchQuery && (
-                            <div className="px-4 py-3 text-center">
-                              <p className="text-xs text-slate-500">No matching patients</p>
-                            </div>
-                          )}
-
-                          <div className="border-t border-white/[0.08]">
-                            <button
-                              onClick={() => {
-                                // If user typed a name in search, use it directly
-                                if (patientSearchQuery.trim()) {
-                                  setPatientName(patientSearchQuery.trim());
-                                  setPatientSearchQuery('');
+                      {/* Patient autocomplete dropdown */}
+                      <AnimatePresence>
+                        {showPatientDropdown && existingPatientNames.length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                            transition={{ duration: 0.12 }}
+                            className="absolute top-full mt-1 left-0 right-0 bg-slate-800/95 backdrop-blur-sm border border-white/[0.12] rounded-xl shadow-2xl z-40 overflow-hidden max-h-48 overflow-y-auto"
+                          >
+                            {existingPatientNames
+                              .filter(n => !patientName || n.toLowerCase().includes(patientName.toLowerCase()))
+                              .slice(0, 8)
+                              .map(name => (
+                              <button
+                                key={name}
+                                onClick={() => {
+                                  setPatientName(name);
                                   setShowPatientDropdown(false);
-                                } else {
+                                }}
+                                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-white hover:bg-indigo-500/15 transition-colors text-left"
+                              >
+                                <div className="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center flex-shrink-0">
+                                  <span className="text-[10px] font-bold text-indigo-400">{name.charAt(0).toUpperCase()}</span>
+                                </div>
+                                {name}
+                              </button>
+                            ))}
+                            <div className="border-t border-white/[0.08]">
+                              <button
+                                onClick={() => {
                                   setShowPatientDropdown(false);
                                   setShowNewPatientModal(true);
-                                }
-                              }}
-                              className="w-full flex items-center gap-2 px-4 py-3.5 text-sm text-violet-400 hover:bg-violet-500/10 transition-colors font-semibold"
-                            >
-                              <Plus size={15} />
-                              New Patient
-                            </button>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-3 text-sm text-indigo-400 hover:bg-indigo-500/10 transition-colors font-semibold"
+                              >
+                                <Plus size={14} />
+                                New Patient
+                              </button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
-                </div>
 
-                {/* Timer Display */}
-                <div className="text-center mb-8">
-                  <AnimatePresence mode="wait">
-                    {isProcessing ? (
-                      <motion.div
-                        key="processing"
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        className="flex flex-col items-center"
+                  {/* Template */}
+                  <div className="flex items-center gap-4">
+                    <label className="text-sm text-slate-400 font-medium whitespace-nowrap" style={{ minWidth: 100 }}>
+                      Template
+                    </label>
+                    <div className="flex-1 relative">
+                      <select
+                        value={selectedTemplate}
+                        onChange={(e) => setTemplate(e.target.value as any)}
+                        className="w-full px-4 py-3 bg-white/[0.04] border border-slate-700/60 rounded-lg text-sm text-white appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500/40 focus:border-indigo-500/40 transition-all"
                       >
-                        <Loader2 size={64} className="text-emerald-500 animate-spin mb-4" />
-                        <p className="text-lg text-white">Processing your recording...</p>
-                        <p className="text-sm text-slate-400 mt-2">Generating clinical notes with AI</p>
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="timer"
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
+                        {myTemplates.map((t) => (
+                          <option key={t.id} value={t.id} className="bg-slate-800 text-white">
+                            {t.name.toUpperCase()}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Session Type */}
+                  <div className="flex items-center gap-4">
+                    <label className="text-sm text-slate-400 font-medium whitespace-nowrap" style={{ minWidth: 100 }}>
+                      Session type
+                    </label>
+                    <div className="flex-1 relative">
+                      <select
+                        value={sessionType}
+                        onChange={(e) => setSessionType(e.target.value as 'in-person' | 'virtual')}
+                        className="w-full px-4 py-3 bg-white/[0.04] border border-slate-700/60 rounded-lg text-sm text-white appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500/40 focus:border-indigo-500/40 transition-all"
                       >
-                        <motion.p key={session.duration} initial={{ scale: 1.1 }} animate={{ scale: 1 }}
-                          className={`text-7xl font-mono font-bold mb-4 tabular-nums tracking-tight ${
-                            isRecordingActive && !meetsMinDuration ? 'text-amber-400' : 'text-white'
-                          }`}>
-                          {formatTime(session.duration)}
-                        </motion.p>
-                        
-                        {/* Minimum duration progress bar */}
-                        {isRecordingActive && !meetsMinDuration && (
-                          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
-                            <div className="flex items-center justify-center gap-2 mb-2">
-                              <Clock size={14} className="text-amber-400" />
-                              <span className="text-amber-400 text-xs font-bold uppercase tracking-wider">
-                                Minimum: {remainingSeconds}s remaining
-                              </span>
-                            </div>
-                            <div className="w-48 mx-auto h-1.5 bg-white/10 rounded-full overflow-hidden">
-                              <motion.div
-                                className="h-full bg-gradient-to-r from-amber-400 to-emerald-400 rounded-full"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${minProgress}%` }}
-                                transition={{ duration: 0.3 }}
-                              />
-                            </div>
-                          </motion.div>
-                        )}
+                        <option value="in-person" className="bg-slate-800 text-white">In person</option>
+                        <option value="virtual" className="bg-slate-800 text-white">Virtual</option>
+                      </select>
+                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                    </div>
+                  </div>
 
-                        {meetsMinDuration && isRecordingActive && (
-                          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-                            className="flex items-center justify-center gap-2 mb-2">
-                            <span className="text-emerald-400 text-xs font-bold">✓ Minimum reached — stop when ready</span>
-                          </motion.div>
-                        )}
-                        
-                        {session.status === 'recording' && (
-                          <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="flex items-center justify-center gap-2"
-                          >
-                            <motion.div animate={{ scale: [1, 1.4, 1] }} transition={{ repeat: Infinity, duration: 1 }}
-                              className="w-3 h-3 bg-red-400 rounded-full" />
-                            <span className="text-red-400 font-semibold">Recording</span>
-                          </motion.div>
-                        )}
-                        
-                        {session.status === 'paused' && (
-                          <span className="text-amber-400 font-semibold">Paused</span>
-                        )}
-                        
-                        {session.status === 'idle' && (
-                          <span className="text-slate-400">Ready to record</span>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-
-
-                {/* Controls */}
-                <div className="flex items-center justify-center gap-4">
-                  {session.status === 'idle' && !isProcessing && (
-                    <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
+                  {/* Capture Conversation Button */}
+                  <div className="pt-4">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       onClick={handleStartRecording}
-                      className="relative w-24 h-24 bg-gradient-to-br from-emerald-400 to-teal-600 rounded-full flex items-center justify-center text-white shadow-2xl shadow-emerald-500/40">
-                      <motion.div animate={{ scale: [1, 1.3, 1] }} transition={{ repeat: Infinity, duration: 2 }}
-                        className="absolute inset-0 rounded-full bg-emerald-500/30" />
-                      <Mic size={36} className="relative z-10" />
+                      className="w-full flex items-center justify-center gap-3 px-6 py-3.5 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 transition-all text-sm"
+                    >
+                      <Mic size={18} />
+                      Capture Conversation
+                      <ChevronDown size={16} className="ml-1 opacity-60" />
                     </motion.button>
-                  )}
+                  </div>
 
-                  {session.status === 'recording' && (
-                    <>
-                      <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
-                        onClick={pauseRecording}
-                        className="w-16 h-16 bg-amber-500/20 border-2 border-amber-400 rounded-full flex items-center justify-center text-amber-400 shadow-lg">
-                        <Pause size={22} />
-                      </motion.button>
-                      <motion.div
-                        animate={shakingStop ? { x: [-6, 6, -6, 6, 0] } : {}}
-                        transition={{ duration: 0.4 }}
-                        className="relative"
-                      >
-                        <motion.button
-                          whileHover={{ scale: meetsMinDuration ? 1.06 : 1.02 }}
-                          whileTap={{ scale: meetsMinDuration ? 0.94 : 0.98 }}
-                          onClick={handleStopRecording}
-                          title={!meetsMinDuration ? `Record at least ${remainingSeconds}s more` : 'Stop and process'}
-                          className={`w-24 h-24 rounded-full flex items-center justify-center text-white shadow-2xl transition-all ${
-                            meetsMinDuration
-                              ? 'bg-red-500 shadow-red-500/40 cursor-pointer'
-                              : 'bg-slate-600 shadow-slate-600/20 cursor-not-allowed opacity-60'
-                          }`}>
-                          <Square size={30} />
-                        </motion.button>
-                        {!meetsMinDuration && (
-                          <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs text-amber-400 font-semibold">
-                            {remainingSeconds}s left
-                          </div>
-                        )}
-                      </motion.div>
-                    </>
-                  )}
-
-                  {session.status === 'paused' && (
-                    <>
-                      <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
-                        onClick={resumeRecording}
-                        className="w-16 h-16 bg-emerald-500/20 border-2 border-emerald-400 rounded-full flex items-center justify-center text-emerald-400 shadow-lg">
-                        <Play size={22} />
-                      </motion.button>
-                      <motion.div
-                        animate={shakingStop ? { x: [-6, 6, -6, 6, 0] } : {}}
-                        transition={{ duration: 0.4 }}
-                        className="relative"
-                      >
-                        <motion.button
-                          whileHover={{ scale: meetsMinDuration ? 1.06 : 1.02 }}
-                          whileTap={{ scale: meetsMinDuration ? 0.94 : 0.98 }}
-                          onClick={handleStopRecording}
-                          title={!meetsMinDuration ? `Record at least ${remainingSeconds}s more` : 'Stop and process'}
-                          className={`w-24 h-24 rounded-full flex items-center justify-center text-white shadow-2xl transition-all ${
-                            meetsMinDuration
-                              ? 'bg-red-500 shadow-red-500/40 cursor-pointer'
-                              : 'bg-slate-600 shadow-slate-600/20 cursor-not-allowed opacity-60'
-                          }`}>
-                          <Square size={30} />
-                        </motion.button>
-                        {!meetsMinDuration && (
-                          <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs text-amber-400 font-semibold">
-                            {remainingSeconds}s left
-                          </div>
-                        )}
-                      </motion.div>
-                      <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
-                        onClick={handleReset}
-                        className="w-16 h-16 bg-white/10 border border-white/20 rounded-full flex items-center justify-center text-slate-400 shadow-lg">
-                        <RotateCcw size={20} />
-                      </motion.button>
-                    </>
-                  )}
-                </div>
-
-                {/* Tips */}
-                <div className="mt-8 p-4 bg-white/5 border border-white/10 rounded-xl">
-                  <h4 className="font-medium text-emerald-400 mb-2">💡 Tips for best results</h4>
-                  <ul className="text-sm text-slate-400 space-y-1">
-                    <li>• <span className="text-amber-400 font-semibold">Minimum {MIN_RECORDING_SECONDS} seconds</span> required per recording</li>
-                    <li>• Speak clearly and at a natural pace</li>
-                    <li>• Minimize background noise</li>
-                    <li>• State important details explicitly</li>
-                  </ul>
-                </div>
-
-                {/* Demo session link */}
-                {session.status === 'idle' && (
+                  {/* Demo link */}
                   <motion.button
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 0.4 }}
+                    transition={{ delay: 0.3 }}
                     onClick={() => navigate('/demo')}
-                    className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-violet-500/[0.07] border border-violet-500/20 text-violet-400 hover:bg-violet-500/15 hover:border-violet-500/40 transition-all text-sm font-medium group"
+                    className="w-full flex items-center justify-center gap-2 py-2 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
                   >
-                    <Play size={13} className="group-hover:translate-x-0.5 transition-transform" />
+                    <Play size={12} />
                     New to Pronote? Try a demo session
                   </motion.button>
-                )}
-              </div>
-            </motion.div>
+                </motion.div>
+              )}
+
+              {/* ── RECORDING STATE ──────────────────────────────────── */}
+              {isRecordingActive && !isProcessing && (
+                <motion.div
+                  key="recording"
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -16 }}
+                  transition={{ duration: 0.25 }}
+                  className="text-center space-y-6"
+                >
+                  {/* Patient & Session info */}
+                  <div>
+                    <p className="text-slate-400 text-sm">Recording session for</p>
+                    <p className="text-white font-bold text-lg">{patientName}</p>
+                    <p className="text-slate-500 text-xs mt-1 capitalize">
+                      {sessionType === 'in-person' ? 'In person' : 'Virtual'} • {resolvedTemplate?.name}
+                    </p>
+                  </div>
+
+                  {/* Timer */}
+                  <div>
+                    <motion.p
+                      key={session.duration}
+                      initial={{ scale: 1.05 }}
+                      animate={{ scale: 1 }}
+                      className={`text-6xl font-mono font-bold tabular-nums tracking-tight ${
+                        !meetsMinDuration ? 'text-amber-400' : 'text-white'
+                      }`}
+                    >
+                      {formatTime(session.duration)}
+                    </motion.p>
+
+                    {/* Minimum duration bar */}
+                    {!meetsMinDuration && (
+                      <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="mt-4">
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                          <Clock size={13} className="text-amber-400" />
+                          <span className="text-amber-400 text-xs font-bold uppercase tracking-wider">
+                            Minimum: {remainingSeconds}s remaining
+                          </span>
+                        </div>
+                        <div className="w-48 mx-auto h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <motion.div
+                            className="h-full bg-gradient-to-r from-amber-400 to-emerald-400 rounded-full"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${minProgress}%` }}
+                            transition={{ duration: 0.3 }}
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {meetsMinDuration && (
+                      <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="mt-3">
+                        <span className="text-emerald-400 text-xs font-bold">✓ Minimum reached — stop when ready</span>
+                      </motion.div>
+                    )}
+
+                    {/* Status indicator */}
+                    <div className="mt-3 flex items-center justify-center gap-2">
+                      {session.status === 'recording' && (
+                        <>
+                          <motion.div animate={{ scale: [1, 1.4, 1] }} transition={{ repeat: Infinity, duration: 1 }}
+                            className="w-2.5 h-2.5 bg-red-400 rounded-full" />
+                          <span className="text-red-400 font-semibold text-sm">Recording</span>
+                        </>
+                      )}
+                      {session.status === 'paused' && (
+                        <span className="text-amber-400 font-semibold text-sm">Paused</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Controls */}
+                  <div className="flex items-center justify-center gap-4 pt-2">
+                    {session.status === 'recording' && (
+                      <>
+                        <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+                          onClick={pauseRecording}
+                          className="w-14 h-14 bg-amber-500/20 border-2 border-amber-400 rounded-full flex items-center justify-center text-amber-400 shadow-lg">
+                          <Pause size={20} />
+                        </motion.button>
+                        <motion.div
+                          animate={shakingStop ? { x: [-6, 6, -6, 6, 0] } : {}}
+                          transition={{ duration: 0.4 }}
+                          className="relative"
+                        >
+                          <motion.button
+                            whileHover={{ scale: meetsMinDuration ? 1.06 : 1.02 }}
+                            whileTap={{ scale: meetsMinDuration ? 0.94 : 0.98 }}
+                            onClick={handleStopRecording}
+                            title={!meetsMinDuration ? `Record at least ${remainingSeconds}s more` : 'Stop and process'}
+                            className={`w-20 h-20 rounded-full flex items-center justify-center text-white shadow-2xl transition-all ${
+                              meetsMinDuration
+                                ? 'bg-red-500 shadow-red-500/40 cursor-pointer'
+                                : 'bg-slate-600 shadow-slate-600/20 cursor-not-allowed opacity-60'
+                            }`}>
+                            <Square size={26} />
+                          </motion.button>
+                        </motion.div>
+                      </>
+                    )}
+
+                    {session.status === 'paused' && (
+                      <>
+                        <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+                          onClick={resumeRecording}
+                          className="w-14 h-14 bg-emerald-500/20 border-2 border-emerald-400 rounded-full flex items-center justify-center text-emerald-400 shadow-lg">
+                          <Play size={20} />
+                        </motion.button>
+                        <motion.div
+                          animate={shakingStop ? { x: [-6, 6, -6, 6, 0] } : {}}
+                          transition={{ duration: 0.4 }}
+                          className="relative"
+                        >
+                          <motion.button
+                            whileHover={{ scale: meetsMinDuration ? 1.06 : 1.02 }}
+                            whileTap={{ scale: meetsMinDuration ? 0.94 : 0.98 }}
+                            onClick={handleStopRecording}
+                            title={!meetsMinDuration ? `Record at least ${remainingSeconds}s more` : 'Stop and process'}
+                            className={`w-20 h-20 rounded-full flex items-center justify-center text-white shadow-2xl transition-all ${
+                              meetsMinDuration
+                                ? 'bg-red-500 shadow-red-500/40 cursor-pointer'
+                                : 'bg-slate-600 shadow-slate-600/20 cursor-not-allowed opacity-60'
+                            }`}>
+                            <Square size={26} />
+                          </motion.button>
+                        </motion.div>
+                        <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+                          onClick={handleReset}
+                          className="w-14 h-14 bg-white/10 border border-white/20 rounded-full flex items-center justify-center text-slate-400 shadow-lg">
+                          <RotateCcw size={18} />
+                        </motion.button>
+                      </>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* ── PROCESSING STATE ─────────────────────────────────── */}
+              {isProcessing && (
+                <motion.div
+                  key="processing"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="flex flex-col items-center py-12"
+                >
+                  <Loader2 size={56} className="text-indigo-500 animate-spin mb-5" />
+                  <p className="text-lg text-white font-semibold">Processing your recording...</p>
+                  <p className="text-sm text-slate-400 mt-2">
+                    {processingStage === 'note'
+                      ? 'Generating clinical notes with AI — typically 15-30 seconds'
+                      : 'Finalizing transcription…'}
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-
-          {/* Settings Panel */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-             <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6">
-              <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
-                  <FileText size={16} className="text-white" />
-                </div>
-                Note Settings
-              </h3>
-
-              <div className="space-y-4">
-                <Select
-                  label="Template"
-                  value={selectedTemplate}
-                  onChange={(e) => setTemplate(e.target.value as any)}
-                  options={myTemplates.map((t) => ({ value: t.id, label: t.name }))}
-                />
-
-                <div className="pt-4 border-t border-white/[0.08]">
-                  <h4 className="text-sm font-semibold text-slate-300 mb-2">Template Sections</h4>
-                  <ul className="text-sm text-slate-400 space-y-1.5">
-                    {resolvedTemplate?.sections.map((section, i) => (
-                      <li key={i} className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                        {section}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            {/* Recent Recordings Info */}
-             <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6 mt-4">
-              <h4 className="font-bold text-white mb-3">Session Info</h4>
-              <div className="space-y-2.5 text-sm">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Status</span>
-                  <span className={`font-bold capitalize px-2.5 py-0.5 rounded-full text-xs ${session.status === 'recording' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : session.status === 'paused' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-white/10 text-slate-400 border border-white/10'}`}>{session.status}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Duration</span>
-                  <span className="font-bold text-white font-mono">{formatTime(session.duration)}</span>
-                </div>
-              </div>
-            </div>
-          </motion.div>
         </div>
       </div>
+
       {/* ── New Patient Modal ───────────────────────────────────────────── */}
       <AnimatePresence>
         {showNewPatientModal && (
@@ -810,7 +834,7 @@ export default function CapturePage() {
                   <button
                     type="button"
                     onClick={() => setShowPronounDropdown(v => !v)}
-                    className="w-full px-3 py-3 bg-white/[0.05] border border-white/[0.12] rounded-xl text-sm text-white flex items-center justify-between gap-2 hover:border-violet-500/40 transition-all"
+                    className="w-full px-3 py-3 bg-white/[0.05] border border-white/[0.12] rounded-xl text-sm text-white flex items-center justify-between gap-2 hover:border-indigo-500/40 transition-all"
                   >
                     <span className={newPatientPronoun === '-' ? 'text-slate-500' : 'text-white'}>
                       {newPatientPronoun}
@@ -833,7 +857,7 @@ export default function CapturePage() {
                             onClick={() => { setNewPatientPronoun(p); setShowPronounDropdown(false); }}
                             className={`w-full text-left px-4 py-3 text-sm transition-colors ${
                               newPatientPronoun === p
-                                ? 'bg-violet-500/20 text-violet-300 font-semibold'
+                                ? 'bg-indigo-500/20 text-indigo-300 font-semibold'
                                 : 'text-slate-300 hover:bg-white/[0.06]'
                             }`}
                           >
@@ -853,7 +877,7 @@ export default function CapturePage() {
                   onKeyDown={e => e.key === 'Enter' && handleCreatePatient()}
                   placeholder="Patient Name"
                   autoFocus
-                  className="flex-1 px-4 py-3 bg-white/[0.05] border border-white/[0.12] rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all text-sm"
+                  className="flex-1 px-4 py-3 bg-white/[0.05] border border-white/[0.12] rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all text-sm"
                 />
               </div>
 
@@ -869,7 +893,7 @@ export default function CapturePage() {
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                   onClick={handleCreatePatient}
-                  className="px-6 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-violet-500/25 hover:opacity-90 transition-all"
+                  className="px-6 py-2.5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-indigo-500/25 hover:opacity-90 transition-all"
                 >
                   Create
                 </motion.button>
@@ -879,6 +903,5 @@ export default function CapturePage() {
         )}
       </AnimatePresence>
     </Sidebar>
-
   );
 }
