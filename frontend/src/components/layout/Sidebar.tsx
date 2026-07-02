@@ -3,9 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
   Mic,
-  MessageSquare,
-  Upload,
-  FileText,
   LayoutTemplate,
   Settings,
   LogOut,
@@ -22,12 +19,12 @@ import {
 import { useState, useEffect, memo } from 'react';
 import { useAuthStore } from '../../store';
 
+// Dictation, Upload, and Notes are reachable from the Capture page (its
+// dropdown menu covers Dictate / Text-to-Note / Upload, and the notes list
+// panel lives there too), so they no longer get their own sidebar entries.
 const menuItems = [
   { name: 'Dashboard',  icon: LayoutDashboard, href: '/dashboard',  color: 'from-emerald-400 to-teal-500' },
   { name: 'Capture',    icon: Mic,             href: '/capture',    color: 'from-rose-400 to-pink-500' },
-  { name: 'Dictation',  icon: MessageSquare,   href: '/dictation',  color: 'from-violet-400 to-purple-500' },
-  { name: 'Upload',     icon: Upload,          href: '/upload',     color: 'from-blue-400 to-indigo-500' },
-  { name: 'Notes',      icon: FileText,        href: '/notes',      color: 'from-amber-400 to-orange-500' },
   { name: 'Patients',   icon: UserCircle,      href: '/patients',   color: 'from-fuchsia-400 to-pink-500' },
   { name: 'Templates',  icon: LayoutTemplate,  href: '/templates',  color: 'from-cyan-400 to-sky-500' },
   { name: 'Analytics',  icon: BarChart2,       href: '/analytics',  color: 'from-violet-400 to-purple-500' },
