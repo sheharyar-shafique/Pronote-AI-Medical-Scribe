@@ -97,6 +97,16 @@ interface RecordingState {
   liveInterim: string;
   /** Human-readable status detail for the UI (errors, connecting, etc.). */
   recordingStatusDetail: string | null;
+  /**
+   * Wall-clock anchors for the session timer. The displayed duration is
+   * computed as (now - recordingStartedAt - pausedTotalMs) rather than by
+   * counting interval ticks — tick counting drifts badly (each tick's delay is
+   * lost) and Chrome throttles background-tab timers, which made the timer run
+   * ~25% slow whenever the tab wasn't focused.
+   */
+  recordingStartedAt: number | null;
+  pausedAt: number | null;
+  pausedTotalMs: number;
   startRecording: () => Promise<void>;
   /**
    * Stops recording, flushes the Deepgram stream, and returns the final
@@ -468,6 +478,9 @@ export const useRecordingStore = create<RecordingState>()((set, get) => ({
   liveTranscript: '',
   liveInterim: '',
   recordingStatusDetail: null,
+  recordingStartedAt: null,
+  pausedAt: null,
+  pausedTotalMs: 0,
 
   startRecording: async () => {
     // Tear down any previous session (shouldn't normally happen, but be safe)
@@ -520,6 +533,9 @@ export const useRecordingStore = create<RecordingState>()((set, get) => ({
           startTime: new Date(),
           duration: 0,
         },
+        recordingStartedAt: Date.now(),
+        pausedAt: null,
+        pausedTotalMs: 0,
       });
     } catch (error) {
       activeRecorder = null;
@@ -546,10 +562,21 @@ export const useRecordingStore = create<RecordingState>()((set, get) => ({
 
   pauseRecording: () => {
     activeRecorder?.pause();
+    // Anchor the pause so paused time is excluded from the computed duration.
+    if (get().pausedAt == null) {
+      set({ pausedAt: Date.now() });
+    }
   },
 
   resumeRecording: () => {
     activeRecorder?.resume();
+    const pausedAt = get().pausedAt;
+    if (pausedAt != null) {
+      set({
+        pausedTotalMs: get().pausedTotalMs + (Date.now() - pausedAt),
+        pausedAt: null,
+      });
+    }
   },
 
   resetRecording: () => {
@@ -562,6 +589,9 @@ export const useRecordingStore = create<RecordingState>()((set, get) => ({
       liveTranscript: '',
       liveInterim: '',
       recordingStatusDetail: null,
+      recordingStartedAt: null,
+      pausedAt: null,
+      pausedTotalMs: 0,
     });
   },
 

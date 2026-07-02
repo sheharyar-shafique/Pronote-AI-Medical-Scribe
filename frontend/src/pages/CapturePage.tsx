@@ -140,14 +140,36 @@ export default function CapturePage() {
   // don't spam it every second once they cross the threshold.
   const warnedNearMaxRef = useRef(false);
 
+  // Always call the LATEST stop handler from the timer tick. The interval is
+  // created once per recording session, so without this ref the 2-hour auto-stop
+  // would capture a stale closure (e.g. an outdated minimum-duration check).
+  const stopHandlerRef = useRef<() => void>(() => {});
+
   useEffect(() => {
     if (session.status === 'recording') {
-      intervalRef.current = setInterval(() => {
-        const next = session.duration + 1;
+      // Wall-clock timer. We compute elapsed = now - startedAt - pausedTime on
+      // every tick instead of counting ticks (+1 per fire). Tick counting
+      // drifts: each interval fire is late by render/processing time, and
+      // Chrome heavily throttles timers in background tabs — users comparing
+      // against a stopwatch saw the timer run ~25% slow. With wall-clock math
+      // the display is always exact no matter how late or throttled the ticks
+      // are. The 500ms cadence just keeps the display smooth.
+      const tick = () => {
+        const { recordingStartedAt, pausedAt, pausedTotalMs } =
+          useRecordingStore.getState();
+        if (!recordingStartedAt) return;
+        const pausedMs =
+          pausedTotalMs + (pausedAt != null ? Date.now() - pausedAt : 0);
+        const next = Math.max(
+          0,
+          Math.floor((Date.now() - recordingStartedAt - pausedMs) / 1000)
+        );
 
-        // Soft warning: 5 minutes before the hard cap fires.
+        // Soft warning: 5 minutes before the hard cap fires. (>= not ===, since
+        // wall-clock seconds can skip values after a throttled/blocked stretch.)
         if (
-          next === MAX_RECORDING_SECONDS - MAX_WARNING_LEAD_SECONDS &&
+          next >= MAX_RECORDING_SECONDS - MAX_WARNING_LEAD_SECONDS &&
+          next < MAX_RECORDING_SECONDS &&
           !warnedNearMaxRef.current
         ) {
           warnedNearMaxRef.current = true;
@@ -157,20 +179,22 @@ export default function CapturePage() {
           );
         }
 
-        // Hard cap: auto-stop the recording exactly at 2 hours.
+        // Hard cap: auto-stop the recording at 2 hours.
         if (next >= MAX_RECORDING_SECONDS) {
           toast.success('2-hour limit reached — processing the recording now.', {
             icon: '⏰',
             duration: 4000,
           });
-          // Trigger the same path the user would by tapping "Stop", so the
-          // recording is segmented + transcribed + a note is generated.
-          handleStopRecording();
+          // Trigger the same path the user would by tapping "Stop".
+          stopHandlerRef.current();
           return;
         }
 
         setDuration(next);
-      }, 1000);
+      };
+
+      tick(); // render the correct value immediately, not after the first delay
+      intervalRef.current = setInterval(tick, 500);
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -186,7 +210,7 @@ export default function CapturePage() {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.status, session.duration, setDuration]);
+  }, [session.status, setDuration]);
 
   // Close patient dropdown on outside click
   useEffect(() => {
@@ -341,6 +365,9 @@ export default function CapturePage() {
       resetRecording();
     }
   };
+
+  // Keep the timer's auto-stop pointing at the freshest handler (see stopHandlerRef).
+  stopHandlerRef.current = handleStopRecording;
 
   const handleReset = () => {
     resetRecording();
