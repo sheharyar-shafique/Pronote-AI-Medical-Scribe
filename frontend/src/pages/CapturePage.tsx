@@ -45,10 +45,6 @@ export default function CapturePage() {
     resumeRecording,
     resetRecording,
     setDuration,
-    // Deepgram streaming state — populated live as the user speaks.
-    liveTranscript,
-    liveInterim,
-    recordingStatusDetail,
   } = useRecordingStore();
   const { addNote, notes, fetchNotes } = useNotesStore();
   const { selectedTemplate, setTemplate } = useSettingsStore();
@@ -582,64 +578,7 @@ export default function CapturePage() {
                   </AnimatePresence>
                 </div>
 
-                {/* ── Live transcript / status panel ─────────────────────────
-                    Real-time feedback from the Deepgram WebSocket stream.
-                    Shows committed transcript + interim (in-progress) text
-                    while recording so the user can SEE the system is actually
-                    transcribing — no more blank-spinner mystery. After Stop,
-                    switches to a clear "Generating note..." indicator. */}
-                {(isRecordingActive || isProcessing || recordingStatusDetail) && (
-                  <div className="mb-6 px-4 py-3 rounded-xl bg-slate-950/40 border border-white/[0.08]">
-                    {/* Status line */}
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs uppercase tracking-wider font-semibold text-slate-400">
-                        {isProcessing && processingStage === 'note'
-                          ? 'Generating clinical note…'
-                          : isProcessing
-                          ? 'Finalizing transcription…'
-                          : isRecordingActive
-                          ? 'Live transcript'
-                          : recordingStatusDetail
-                          ? 'Status'
-                          : 'Live transcript'}
-                      </span>
-                      {isProcessing && (
-                        <Loader2 size={14} className="animate-spin text-violet-400" />
-                      )}
-                      {isRecordingActive && !isProcessing && (
-                        <span className="text-xs text-emerald-400 font-medium">
-                          {liveTranscript ? `${liveTranscript.split(/\s+/).length} words` : 'Listening…'}
-                        </span>
-                      )}
-                    </div>
 
-                    {/* Transcript / error body */}
-                    {recordingStatusDetail && !isProcessing ? (
-                      <p className="text-sm text-amber-400 leading-relaxed">
-                        {recordingStatusDetail}
-                      </p>
-                    ) : (
-                      <div className="max-h-32 overflow-y-auto text-sm leading-relaxed text-slate-200">
-                        {liveTranscript ? (
-                          <>
-                            <span>{liveTranscript}</span>
-                            {liveInterim && (
-                              <span className="text-slate-500 italic"> {liveInterim}</span>
-                            )}
-                          </>
-                        ) : isProcessing && processingStage === 'note' ? (
-                          <span className="text-slate-400">
-                            Transcript captured. Asking the AI to write the clinical note — typically 15-30 seconds…
-                          </span>
-                        ) : (
-                          <span className="text-slate-500 italic">
-                            Speak naturally. Your words will appear here as you talk.
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 {/* Controls */}
                 <div className="flex items-center justify-center gap-4">
