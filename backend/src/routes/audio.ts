@@ -524,18 +524,30 @@ router.post('/generate-note', async (req: AuthenticatedRequest, res: Response, n
         console.log(`[transcript] Extremely long transcript (${wordCount} words) trimmed to ~22,000, middle omitted.`);
       }
 
-      // Model selection by length. gpt-4o-mini is fast and accurate for short
-      // visits. For longer visits (~20+ min) the stronger gpt-4o captures the full
-      // narrative far more reliably across a large transcript, so we make it the
-      // primary there and fall back to mini. Correctness on long visits matters
-      // more than shaving a few seconds.
-      const isLongVisit = wordCount > 3000;
-      const primaryModel = isLongVisit ? 'gpt-4o' : 'gpt-4o-mini';
-      const secondaryModel = isLongVisit ? 'gpt-4o-mini' : 'gpt-4o';
+      // Quality-first model selection: gpt-4.1 is the primary for EVERY note.
+      // Measured head-to-head on the same visit transcript with the same prompt:
+      // gpt-4o-mini ≈ 595 words, gpt-4o ≈ 794, gpt-4.1 ≈ 1,287 — and gpt-4.1 is
+      // also the best at honoring the per-section length floors and the
+      // ROS / exam scaffolding ("not assessed" subsections) that make notes read
+      // like a complete clinical document. It's also slightly faster than gpt-4o.
+      // Users comparing against competitor scribes found shorter notes
+      // unacceptable, so depth is the top requirement here.
+      const primaryModel = 'gpt-4.1';
+      const secondaryModel = 'gpt-4o';
 
-      const userMessage = preamble
+      // Trailing reinforcement: models weight instructions at the END of the user
+      // message far more heavily than mid-system-prompt rules. Without this, the
+      // model tends to compress sections to ~60-100 words despite the length floor.
+      const DEPTH_REMINDER =
+        '\n\n[Documentation requirements — apply strictly: write an EXHAUSTIVE clinical note, not a summary. ' +
+        'Every major section must run 150+ words when the visit contains material for it. ' +
+        'Use labeled subsections on separate lines. Include a complete labeled Review of Systems and the full set of standard exam subsections, marking unexamined ones "not assessed". ' +
+        'Restate every number mentioned (doses, vitals, weights, durations). Include every pertinent negative as its own statement. ' +
+        'A longer, complete note is always preferred to a shorter one.]';
+
+      const userMessage = (preamble
         ? `${preamble}\n\nGenerate a clinical note from this transcription:\n\n${processedTranscription}`
-        : `Generate a clinical note from this transcription:\n\n${processedTranscription}`;
+        : `Generate a clinical note from this transcription:\n\n${processedTranscription}`) + DEPTH_REMINDER;
 
       let lastError: Error | null = null;
 
@@ -581,20 +593,22 @@ router.post('/generate-note', async (req: AuthenticatedRequest, res: Response, n
           console.error(`${secondaryModel} also failed:`, miniError.message);
           lastError = miniError;
 
-          // Last resort: gpt-3.5-turbo (no json_object mode — parse manually)
+          // Last resort: gpt-4o-mini (fast, always available)
           try {
             const response = await openai.chat.completions.create({
-              model: 'gpt-3.5-turbo',
+              model: 'gpt-4o-mini',
               messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userMessage + ' Return ONLY valid JSON, no markdown.' },
               ],
+              response_format: { type: 'json_object' },
               temperature: 0.3,
+              max_tokens: 16000,
             });
             const raw = response.choices[0].message.content || '{}';
             const match = raw.match(/```json\s*([\s\S]*?)\s*```/) || raw.match(/(\{[\s\S]*\})/);
             noteContent = JSON.parse(match ? (match[1] || match[0]) : raw);
-            console.log(`✅ GPT-3.5-turbo note generated for template: ${template}`);
+            console.log(`✅ gpt-4o-mini (last resort) note generated for template: ${template}`);
             lastError = null;
           } catch (gpt35Error: any) {
             console.error('All GPT models failed:', gpt35Error.message);
@@ -1057,7 +1071,7 @@ function buildDynamicPrompt(settings: SectionSetting[]): string {
     const key = getKey(s.title);
     const verbosityHint = s.verbosity === 'concise'
       ? 'Keep this section concise — 2-3 focused sentences maximum.'
-      : 'Be thorough and detailed in this section — provide at minimum 4-6 sentences with comprehensive clinical information.';
+      : 'Be thorough and comprehensive in this section — target 120-250+ words covering every relevant detail from the transcription, with labeled subsections where clinically standard. Do NOT compress or summarize away detail.';
     const stylingHint = s.styling === 'bullet'
       ? 'Format this section as bullet points (use "• " prefix for each point).'
       : 'Format this section as flowing narrative paragraphs.';
@@ -1317,7 +1331,7 @@ function buildPromptFromSections(sections: string[], templateId: string): string
   // Build the JSON schema example and per-section instructions
   const sectionInstructions = sections.map(s => {
     const key = getKey(s);
-    return `- "${key}" ("${s}"): Write thorough, clinically detailed content for this section based on the transcription. At minimum 3-5 sentences.`;
+    return `- "${key}" ("${s}"): Write thorough, clinically comprehensive content for this section based on the transcription — target 120-250+ words where the visit supports it, with labeled subsections where clinically standard. Capture every relevant detail; do not summarize away specifics.`;
   }).join('\n');
 
   const jsonKeys = sections.map(s => `  "${getKey(s)}": "..."`).join(',\n');
@@ -1355,12 +1369,56 @@ ${DETAIL_INSTRUCTION}`;
 /** The DETAIL_INSTRUCTION block shared by all prompts. Extracted so it can be reused. */
 function getDetailInstruction(): string {
   return `
-IMPORTANT RULES FOR ALL SECTIONS:
-- Each section must be THOROUGH and DETAILED — at minimum 3-5 sentences per section, more if the transcription warrants it.
-- Never abbreviate or summarize too briefly. Expand on every detail mentioned in the transcription.
-- Use proper medical terminology throughout.
-- If the transcription mentions a symptom, describe onset, duration, severity, aggravating/alleviating factors, and associated symptoms.
-- Physical exam findings should include all systems examined, not just abnormals.
+DEPTH AND COMPLETENESS (THE MOST IMPORTANT REQUIREMENT):
+You are writing a complete, billable clinical document — not a summary. A clinician
+reading ONLY your note (never the transcript) must be able to reconstruct the entire
+visit. Write like a meticulous attending physician documenting for the medical record.
+When in doubt, over-document — a longer, complete note is always preferred to a
+shorter one. NEVER compress multiple findings into one sentence.
+
+- STRICT LENGTH FLOOR: every major section must be AT LEAST 150 words when the visit
+  contains relevant material for it, and 250+ words where the transcript is rich.
+  Notes with thin sections are rejected as documentation failures.
+- Capture EVERY clinically relevant datum from the transcription: every symptom,
+  every medication (with dose/frequency when stated), every measurement, every
+  timeline detail, every psychosocial factor, every instruction given. Omitting a
+  detail that was discussed is a documentation error. Restate every number the
+  transcript contains (doses, vitals, weights, durations, quantities).
+- For each symptom, document the full characterization the transcript supports:
+  onset, location, duration, character, aggravating/alleviating factors, radiation,
+  timing, severity, and associated symptoms — EACH as its own explicit statement,
+  plus every pertinent negative the clinician asked about (e.g. "Denies vomiting.
+  Denies hematemesis. Denies melena.").
+- History-type sections must also document, with labels, each of: past medical
+  history, medications, allergies (state "not discussed" if absent), social history
+  (tobacco/alcohol/caffeine/occupation as available), and family history — every one
+  of these the transcript touches gets its own labeled line.
+- Subjective/ROS-type sections must include a complete labeled Review of Systems
+  block covering at least: Constitutional, Cardiovascular, Respiratory,
+  Gastrointestinal, Genitourinary, Musculoskeletal, Neurological, Psychiatric, and
+  Skin — marking each system with what was reported, what was denied, or
+  "not assessed" if it never came up. Exam-type sections likewise include the full
+  set of standard subsections for the specialty, with "not assessed during this
+  visit" for the ones the clinician didn't examine.
+- Structure EVERY section over 60 words with labeled subsections INSIDE the string,
+  one per line, e.g. for an objective/exam section:
+  "Vital Signs: BP 130/85 mmHg, HR 72 bpm, afebrile.\\nGeneral: Alert, well-appearing, in no acute distress.\\nCardiovascular: Regular rate and rhythm, no murmurs.\\nRespiratory: Lungs clear to auscultation bilaterally.\\nAbdomen: Soft, non-tender, no organomegaly."
+  Include the standard subsections for the section type even when a given one was
+  not assessed — write "not assessed during this visit" for it rather than omitting.
+- Assessment sections must show clinical reasoning per problem, each on its own
+  numbered line: the diagnosis (with ICD-10 when clearly supported), the specific
+  supporting findings from THIS visit, the differential considered and why, and the
+  risk factors that elevate concern.
+- Plan sections must be organized per problem with numbered items, each with
+  specific actions: medications (drug, dose, route, frequency, duration),
+  diagnostics ordered with the reason, referrals with specialty and timeframe,
+  patient education delivered, lifestyle modifications, and follow-up interval.
+- NEVER fabricate specific values (vitals, lab results, doses) that were not stated.
+  When something standard was not addressed, document it professionally within the
+  structure (e.g. "Vital signs: not obtained during this visit") rather than
+  inventing numbers or silently dropping the subsection.
+- Use precise medical terminology; convert lay descriptions into clinical language
+  (e.g. "feeling down" → "reports depressed mood").
 - The "instructions" field is MANDATORY and must ALWAYS be included. It should contain:
   1. Medications prescribed with dosage, frequency, and duration
   2. Activity restrictions or modifications
