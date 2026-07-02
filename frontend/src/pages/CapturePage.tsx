@@ -15,6 +15,10 @@ import {
   ChevronDown,
   User,
   Search,
+  Headphones,
+  Upload,
+  MessageSquare,
+  Type,
 } from 'lucide-react';
 import { Sidebar } from '../components/layout';
 import { useRecordingStore, useNotesStore, useSettingsStore } from '../store';
@@ -86,6 +90,9 @@ export default function CapturePage() {
   const [patientPronoun, setPatientPronoun] = useState('');
   const [shakingStop, setShakingStop] = useState(false);
   const [sessionType, setSessionType] = useState<'in-person' | 'virtual'>('in-person');
+  const [usingHeadphones, setUsingHeadphones] = useState(false);
+  const [showCaptureDropdown, setShowCaptureDropdown] = useState(false);
+  const captureDropdownRef = useRef<HTMLDivElement>(null);
 
   // Notes list panel state
   const [notesTab, setNotesTab] = useState<'all' | 'unread'>('all');
@@ -231,6 +238,9 @@ export default function CapturePage() {
       }
       if (pronounDropdownRef.current && !pronounDropdownRef.current.contains(e.target as Node)) {
         setShowPronounDropdown(false);
+      }
+      if (captureDropdownRef.current && !captureDropdownRef.current.contains(e.target as Node)) {
+        setShowCaptureDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -606,18 +616,109 @@ export default function CapturePage() {
                     </div>
                   </div>
 
-                  {/* Capture Conversation Button */}
-                  <div className="pt-4">
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={handleStartRecording}
-                      className="w-full flex items-center justify-center gap-3 px-6 py-3.5 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 transition-all text-sm"
-                    >
-                      <Mic size={18} />
-                      Capture Conversation
-                      <ChevronDown size={16} className="ml-1 opacity-60" />
-                    </motion.button>
+                  {/* Headphones toggle — only visible when Virtual */}
+                  <AnimatePresence>
+                    {sessionType === 'virtual' && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="flex rounded-lg border border-slate-700/60 overflow-hidden">
+                          <button
+                            onClick={() => setUsingHeadphones(false)}
+                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                              !usingHeadphones
+                                ? 'bg-indigo-500/15 text-indigo-300 border-r border-indigo-500/30'
+                                : 'bg-white/[0.02] text-slate-400 border-r border-slate-700/60 hover:bg-white/[0.04]'
+                            }`}
+                          >
+                            <Headphones size={15} />
+                            Not using Headphones
+                          </button>
+                          <button
+                            onClick={() => setUsingHeadphones(true)}
+                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                              usingHeadphones
+                                ? 'bg-indigo-500/15 text-indigo-300'
+                                : 'bg-white/[0.02] text-slate-400 hover:bg-white/[0.04]'
+                            }`}
+                          >
+                            <Headphones size={15} />
+                            Using Headphones
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Capture Conversation Split Button */}
+                  <div className="pt-4 relative" ref={captureDropdownRef}>
+                    <div className="flex rounded-xl overflow-hidden shadow-lg shadow-indigo-500/25">
+                      {/* Main button */}
+                      <motion.button
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.99 }}
+                        onClick={handleStartRecording}
+                        className="flex-1 flex items-center justify-center gap-3 px-6 py-3.5 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-semibold transition-all text-sm"
+                      >
+                        <Mic size={18} />
+                        Capture Conversation
+                      </motion.button>
+                      {/* Dropdown arrow */}
+                      <button
+                        onClick={() => setShowCaptureDropdown(v => !v)}
+                        className="px-3.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white border-l border-indigo-400/30 transition-all"
+                      >
+                        <ChevronDown size={16} className={`transition-transform ${showCaptureDropdown ? 'rotate-180' : ''}`} />
+                      </button>
+                    </div>
+
+                    {/* Dropdown menu */}
+                    <AnimatePresence>
+                      {showCaptureDropdown && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                          transition={{ duration: 0.12 }}
+                          className="absolute top-full mt-1.5 right-0 w-64 bg-slate-800/95 backdrop-blur-sm border border-white/[0.12] rounded-xl shadow-2xl z-50 overflow-hidden"
+                        >
+                          <button
+                            onClick={() => {
+                              setShowCaptureDropdown(false);
+                              navigate('/dictation');
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-indigo-500/10 transition-colors text-left"
+                          >
+                            <MessageSquare size={16} className="text-slate-400" />
+                            Dictate Session Summary
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowCaptureDropdown(false);
+                              toast('Text to Note coming soon!', { icon: '📝' });
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-indigo-500/10 transition-colors text-left"
+                          >
+                            <Type size={16} className="text-slate-400" />
+                            Text to Note
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowCaptureDropdown(false);
+                              navigate('/upload');
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-indigo-500/10 transition-colors text-left"
+                          >
+                            <Upload size={16} className="text-slate-400" />
+                            Upload Recording
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
                   {/* Demo link */}
